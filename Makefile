@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -std=c++14 -g -Wall -MMD
+CXXFLAGS = -std=c++14 -g -Wall -Wno-sign-compare -MMD
 OBJECTS = wwf.o
 DEPENDS = ${OBJECTS:.o=.d}
 EXEC = a 
