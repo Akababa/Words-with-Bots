@@ -4,7 +4,12 @@
 #include <string>
 #include <vector>
 #include "move.h"
+#include <sstream>
+#include <set>
+#include <algorithm>
 using namespace std;
+
+bool debug=false;
 
 unordered_set<string> words;
 char board[13][13];
@@ -46,8 +51,7 @@ bool islegal(int i,int j,bool across){
 
             string test(j2-j1-1,0);
             for(int jj=j1+1;jj<j2;jj++) test[jj-j1-1]=board[i][jj];
-            cout <<i<<","<<j1<<"-"<<j2; 
-            cout <<": "<<test<<" "<<isWord(test)<<endl;
+            if(debug) cout <<i<<","<<j1<<"-"<<j2<<": "<<test<<" "<<isWord(test)<<endl;
             return isWord(test);
         }else return true;
     }else{
@@ -60,8 +64,7 @@ bool islegal(int i,int j,bool across){
             for(int ii=i1+1;ii<i2;ii++) {
                 test[ii-i1-1]=board[ii][j];
             }
-            cout <<i1<<"-"<<i2<<","<<j;
-            cout <<": "<<test<<" "<<isWord(test)<<endl;
+            if(debug) cout <<i1<<"-"<<i2<<","<<j<<": "<<test<<" "<<isWord(test)<<endl;
             return isWord(test);
         } else return true;
     }
@@ -111,21 +114,46 @@ bool contains(const char (&set)[7],char c){
     return set[0]==c || set[1]==c || set[2]==0 || set[2]==c || set[3]==0 || set[3]==c || set[4]==c || set[5]==c || set[6]==c;
 }
 
+string ms(char a,char b){
+    return string(1,a)+b;
+}
+
+void findmovesat(int i,int j){
+    for(char c:rack){
+        if((adj[0][i][j]||adj[1][i][j]) && legal[1][c-'a'][i][j] && legal[0][c-'a'][i][j]){
+            moves.push_back(Move(string(1,c),i,j));
+        }
+    }
+    if(!adj[1][i][j]) return;
+    //cout <<i<<j<<rack.size()<<endl;
+    for(int a=0;a<rack.size();a++){
+        char ra=rack[a];
+        if(!legal[1][ra-'a'][i][j]) continue;
+        rack.erase(rack.begin()+a);
+        //cout << "2letter moves starting with "<<ra<<endl;
+        for(int b=0;b<rack.size();b++){
+            if(!legal[1][rack[b]-'a'][i][j+1]) continue;
+            moves.push_back(Move(ms(ra,rack[b]),i,j));
+        }
+        rack.insert(rack.begin()+a,ra);
+    }
+}
+
 void findmoves(){
+    moves.clear();
+    /*
     char pos[13][13][7];
     int idx[13][13];
     for(int i=1;i<=11;i++){
         for(int j=1;j<=11;j++){
             for(char c:rack){
-                if(legal[1][i][j]) pos[i][j][idx[i][j]++]=c;
+                if(legal[1][c-'a'][i][j]) pos[i][j][idx[i][j]++]=c;
             }
         }
-    }
+    }*/
     for(int i=1;i<=11;i++){
         for(int j=1;j<=11;j++){
-            for(int k=0;k<idx[i][j];k++){
-
-            }
+            findmovesat(i,j);
         }
     }
 
@@ -190,7 +218,7 @@ void print(const int (&arr)[13][13],string s){
     }
 }
 
-void print(){
+void printboard(){
     cout<<"board:"<<endl;
     for(int i=0;i<=12;i++){
         for(int j=0;j<=12;j++){
@@ -231,34 +259,74 @@ void calclegal(){
     }
 }
 
+void docommand(string s){
+    stringstream line(s);
+    string com;line>>com;
+    if(com=="pm"){
+        int i,j;string ss,acr;
+        if(!(line>>ss>>i>>j)) return;
+        if(line) line>>acr; else acr='f';
+        placemove(Move(ss,i,j,acr[0]!='f'));
+        findadj();
+    }else if(com=="il"){
+        int i,j;string ss,acr;       
+        if(!(line>>ss>>i>>j)) return;
+        if(line) line>>acr; else acr='f';
+        cout<<islegal(Move(ss,i,j,acr[0]!='f'))<<endl;
+    }else if(com=="rm"){
+        int i,j;
+        if(!(line>>i>>j)) return;
+        board[i][j]=0;
+        findadj();
+    }else if(com=="pr"){
+        set<string> arrs;
+        while(line){
+            string ss;line>>ss;
+            if(ss=="b") printboard();
+            if(ss=="a"){
+                print(adj[0],"adj[0]:");
+                print(adj[1],"adj[1]:");
+            }
+            if(ss=="r"){
+                for(char c:rack) cout<<c;
+                cout<<endl;
+            }
+        }
+        //if(arrs.size()==0) cout<<"spelinefy array to print"<<endl;
+    }else if(com=="cl"){
+        string ss;
+        if(!(line>>ss)) return;
+        calclegal();
+        print(legal[0][ss[0]-'a'],"legal[0]["+ss+"]");
+        print(legal[1][ss[0]-'a'],"legal[1]["+ss+"]");
+    }else if(com=="ra"){
+        while(line){
+            string ss;line>>ss;
+            if(ss[0]=='+') for(int i=1;i<ss.size();i++) rack.push_back(ss[i]);
+            if(ss[0]=='-') for(int i=1;i<ss.size();i++) rack.erase(find(rack.begin(),rack.end(),ss[i]));
+        }
+    }else if (com=="lm"){
+        calclegal();
+        findmoves();
+        for(Move &m:moves){
+            cout <<m<<endl;
+        }
+    }else if(com=="db") line>>debug;
+    else if(com=="file"){
+        string name;if(!(line>>name)) return;
+        fstream fs{name};
+        while(fs){
+            string cm;getline(fs,cm);
+            docommand(cm);
+        }
+    }
+}
+
 int main(){
     init();
     findadj();
     while(cin){
-        string s;cin>>s;
-        if(s=="pm"){
-            int i,j;string ss,acr;cin>>ss>>i>>j>>acr;
-            placemove(Move(ss,i,j,acr[0]!='f'));
-            findadj();
-        }else if (s=="il"){
-            int i,j;string ss,acr;cin>>ss>>i>>j>>acr;
-            cout<<islegal(Move(ss,i,j,acr[0]!='f'))<<endl;
-        }else if (s=="rm"){
-            int i,j;cin>>i>>j;
-            board[i][j]=0;
-            findadj();
-        }else if (s=="pr"){
-            string ss;cin>>ss;
-            if(ss[0]=='b') print();
-            if(ss[0]=='a'){
-                print(adj[0],"adj[0]:");
-                print(adj[1],"adj[1]:");
-            }
-        }else if (s=="cl"){
-            string ss;cin>>ss;
-            calclegal();
-            print(legal[0][ss[0]-'a'],"legal[0]["+ss+"]");
-            print(legal[1][ss[0]-'a'],"legal[1]["+ss+"]");
-        }
+        string s;getline(cin,s);
+        docommand(s);
     }
 }

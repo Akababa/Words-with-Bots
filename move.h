@@ -23,5 +23,5 @@ public:
 };
 
 std::ostream &operator<<(std::ostream &out, Move &m){
-    return out<<m.row<<", "<<m.col<<(m.across?" across":" down")<<" "<<m.word;
+    return out<<m.word<<":"<<m.row<<","<<m.col<<(m.across?" across":" down");
 }
