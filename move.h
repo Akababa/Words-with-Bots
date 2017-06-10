@@ -1,9 +1,10 @@
 #include <iostream>
-#include <string>
+#include <cstring>
 
 class Move {
 public:
-    std::string word; //assume this is a valid word
+    char* word; //assume this is a valid word
+    int length;
     int row,col;
     bool across;
     int score,rackused;
@@ -11,8 +12,11 @@ public:
     /*
     * Assume word passed in is valid
     */
-    Move(std::string word,int r,int c,bool across=true, int score=0,int rackused=0){
-        this->word=word;
+    Move(const char* word,int length,int r,int c,bool across=true, int score=0,int rackused=0){
+        this->word=new char[length+1];
+        std::memcpy(this->word,word,length);
+        this->word[length]=0;
+        this->length=length;
     	this->row=r;
     	this->col=c;
         this->across=across;
@@ -23,5 +27,5 @@ public:
 };
 
 std::ostream &operator<<(std::ostream &out, Move &m){
-    return out<<m.word<<":"<<m.row<<","<<m.col<<(m.across?" across":" down");
+    return out<<m.word<<" @ "<<m.row<<","<<m.col<<(m.across?" across":" down");
 }
