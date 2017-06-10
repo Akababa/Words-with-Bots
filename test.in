@@ -1,10 +1,10 @@
 db 0
-pm s 6 5 t
-pm enon 7 7 t
-pm spite 8 3 t
+pm s 6 5
+pm enon 7 7
+pm spite 8 3
 rm 8 6
-pm teeny 6 7 f
-il sixte 5 6 f
-il sixteen 5 6 f
-pm sixteen 5 6 f
+pm teeny 6 7 d
+il sixte 5 6 d
+il sixteen 5 6 d
+pm sixteen 5 6 d
 pr b a

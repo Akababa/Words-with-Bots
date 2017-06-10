@@ -1,13 +1,11 @@
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <unordered_set>
 #include <string>
 #include <vector>
 #include <sstream>
 #include <algorithm>
-#include <list>
-#include <set>
-#include <iomanip>
 #include "move.h"
 using namespace std;
 
@@ -17,14 +15,18 @@ unordered_set<string> words;
 char board[13][13];
 int adj[2][13][13]; //scores of words adjacent to a square
 bool legal[2][26][13][13];
+int wordmult[13][13];
+int letrmult[13][13];
 
+vector<char> bag;
 vector<Move> moves;
 vector<char> rack;
 //vector<string> letters[26]; 
 int val[27];
 int num[26];
 int scoreword(int i,int j,bool across,bool nonadj,bool illegal);
-void findadj(){
+
+void calcadj(){
     for(int i=1;i<=11;i++)
         for(int j=1;j<=11;j++)
             adj[1][i][j]=adj[0][i][j]=0;
@@ -35,7 +37,7 @@ void findadj(){
                 for(int ii=-1;ii<=1;ii++){
                     for(int jj=-1;jj<=1;jj++){
                         if((ii+jj)%2 && board[i+ii][j+jj]>1) {
-                            board[i][j]='a'+26;
+                            board[i][j]='a'+26; // dummy character to discount ij
                             adj[ii*ii][i][j]=scoreword(i,j,jj!=0,true,true);
                             board[i][j]=0;
                         }
@@ -49,12 +51,13 @@ void findadj(){
 bool isWord(string& s){
     return words.count(s);
 }
+
 void docommand(string s);
 
-string retword;
 // Find the score of one word (across or down) at i,j or -1 if illegal
 // nonadj=true checks non-adjacent positions
 // illegal= true finds score of illegal words
+string retword; //last checked word for convenience
 int scoreword(int i,int j,bool across,bool nonadj=false,bool illegal=false){
     int score=0;
     if(across){
@@ -134,31 +137,31 @@ bool islegal(const Move &m){
     return ret;
 }
 
-//TODO: Non-contiguous moves
-int accadj; //accumulates the adjacent word scores
-void findmovesat(int i,int j,bool acr,int len=0,bool hasadjyet=false){
+// DONE: Non-contiguous moves
+// accadj accumulates the adjacent word scores
+// len is distance from the first
+void findmovesat(int i,int j,bool acr,int len=0,int accadj=0){
     if(board[i][j]==1) return; // outside board
 
-    if(board[i][j]){ // on an occupied square
-        findmovesat(i+!acr,j+acr,acr,len+1,hasadjyet || adj[0][i][j] || adj[1][i][j]);
-        return;
-    }
+    if(board[i][j]) // on an occupied square
+        return findmovesat(i+!acr,j+acr,len+1,acr,accadj);
+    
     // on an empty square
-    for(int itc=0;itc<rack.size();itc++){
-        char c=rack[itc];
-        if(!legal[acr][c-'a'][i][j]) continue;
+    for(int idc=0;idc<rack.size();idc++){
+        char c=rack[idc];
+        if(!legal[acr][c-'a'][i][j]) continue; //adjacent word illegal, abort
         board[i][j]=c;
-        if(hasadjyet || adj[0][i][j] || adj[1][i][j]){
+        if(accadj || adj[0][i][j] || adj[1][i][j]){
             int sc=scoreword(i,j,acr,true);
             if(sc!=-1)
-                moves.push_back(Move(retword,retword.size(),i-len*!acr,j-len*acr,acr,sc));
+                moves.push_back(Move(retword,retword.size(),i-len*!acr,j-len*acr,acr,accadj+sc));
         }
         if(rack.size()>1){
-            rack[itc]=rack.back();
+            rack[idc]=rack.back();
             rack.pop_back();
-            findmovesat(i+!acr,j+acr,acr,len+1,hasadjyet || adj[0][i][j] || adj[1][i][j]);
-            rack.push_back(rack[itc]);
-            rack[itc]=c;
+            findmovesat(i+!acr,j+acr,acr,len+1,accadj + adj[acr][i][j]);
+            rack.push_back(rack[idc]);
+            rack[idc]=c;
         }
         board[i][j]=0;
     }
@@ -166,16 +169,6 @@ void findmovesat(int i,int j,bool acr,int len=0,bool hasadjyet=false){
 
 void findmoves(){
     moves.clear();
-    /*
-    char pos[13][13][7];
-    int idx[13][13];
-    for(int i=1;i<=11;i++){
-        for(int j=1;j<=11;j++){
-            for(char c:rack){
-                if(legal[1][c-'a'][i][j]) pos[i][j][idx[i][j]++]=c;
-            }
-        }
-    }*/
     for(int i=1;i<=11;i++){
         for(int j=1;j<=11;j++){
             if(board[i][j]==0) {
@@ -306,33 +299,34 @@ void docommand(string s){
     if(com=="pm"){
         int i,j;string ss,acr;
         if(!(line>>ss>>i>>j)) return;
-        if(line) line>>acr; else acr='f';
-        placemove(Move(ss.c_str(),ss.size(),i,j,acr[0]!='f'));
-        findadj();
+        if(line) line>>acr; else acr='d';
+        placemove(Move(ss.c_str(),ss.size(),i,j,acr[0]!='d'));
+        calcadj();
     }else if(com=="il"){
         int i,j;string ss,acr;       
         if(!(line>>ss>>i>>j)) return;
-        if(line) line>>acr; else acr='f';
-        Move m(ss.c_str(),ss.size(),i,j,acr[0]!='f');
-        cout<<m<<" legal: "<<islegal(Move(ss.c_str(),ss.size(),i,j,acr[0]!='f'))<<endl;
+        if(line) line>>acr; else acr='d';
+        Move m(ss.c_str(),ss.size(),i,j,acr[0]!='d');
+        cout<<m<<" legal: "<<islegal(m)<<endl;
     }else if(com=="rm"){
         int i,j;
         if(!(line>>i>>j)) return;
         board[i][j]=0;
-        findadj();
+        calcadj();
     }else if(com=="pr"){
-        set<string> arrs;
-        while(line){
-            string ss;line>>ss;
-            if(ss=="b") printboard();
-            if(ss=="a"){
-                print(adj[0],"adj[0]:");
-                print(adj[1],"adj[1]:");
-            }
-            if(ss=="r"){
-                cout << "rack: ";
-                for(char c:rack) cout<<c;
-                cout<<endl;
+        string ss;line>>ss;
+        for(char cc:ss){
+            switch(cc){
+                case 'b': printboard();break;
+                case 'a': 
+                    print(adj[0],"adj[0]:");
+                    print(adj[1],"adj[1]:");
+                    break;
+                case 'r':
+                    cout << "rack: ";
+                    for(char c:rack) cout<<c;
+                    cout<<endl;
+                    break;
             }
         }
         //if(arrs.size()==0) cout<<"spelinefy array to print"<<endl;
@@ -377,7 +371,7 @@ void docommand(string s){
 
 int main(){
     init();
-    findadj();
+    calcadj();
     while(cin){
         string s;getline(cin,s);
         docommand(s);
