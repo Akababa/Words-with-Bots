@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <list>
 #include <set>
+#include <iomanip>
 #include "move.h"
 using namespace std;
 
@@ -14,15 +15,15 @@ bool debug=false;
 
 unordered_set<string> words;
 char board[13][13];
-int adj[2][13][13];
+int adj[2][13][13]; //scores of words adjacent to a square
 bool legal[2][26][13][13];
 
 vector<Move> moves;
 vector<char> rack;
 //vector<string> letters[26]; 
-int val[26];
+int val[27];
 int num[26];
-
+int scoreword(int i,int j,bool across,bool nonadj,bool illegal);
 void findadj(){
     for(int i=1;i<=11;i++)
         for(int j=1;j<=11;j++)
@@ -31,11 +32,15 @@ void findadj(){
     for(int i=1;i<=11;i++){
         for(int j=1;j<=11;j++){
             if(board[i][j]==0){
-                for(int ii=-1;ii<=1;ii++)
-                    for(int jj=-1;jj<=1;jj++)
+                for(int ii=-1;ii<=1;ii++){
+                    for(int jj=-1;jj<=1;jj++){
                         if((ii+jj)%2 && board[i+ii][j+jj]>1) {
-                            adj[ii*ii][i][j]=1;
+                            board[i][j]='a'+26;
+                            adj[ii*ii][i][j]=scoreword(i,j,jj!=0,true,true);
+                            board[i][j]=0;
                         }
+                    }
+                }
             }
         }
     }
@@ -45,60 +50,77 @@ bool isWord(string& s){
     return words.count(s);
 }
 void docommand(string s);
-// Checks if the word formed in one direction (across or down) at i,j is legal
-// checkall parameter is whether to check non-adjacent words
-bool islegal(int i,int j,bool across,bool checkall=false){
+
+string retword;
+// Find the score of one word (across or down) at i,j or -1 if illegal
+// nonadj=true checks non-adjacent positions
+// illegal= true finds score of illegal words
+int scoreword(int i,int j,bool across,bool nonadj=false,bool illegal=false){
+    int score=0;
     if(across){
-        if(checkall || adj[0][i][j]){ //check horiz
+        if(nonadj || adj[0][i][j]){ //check horiz
             int j1=j; while(board[i][--j1]>1);
             int j2=j; while(board[i][++j2]>1);
-            if(j2-j1==2) return true;
+            /*if(j2-j1==2){
+                retword=string(1,board[i][j]);
+                return val[board[i][j]-'a'];
+            }*/
 
-            string test(j2-j1-1,0);
-            for(int jj=j1+1;jj<j2;jj++) test[jj-j1-1]=board[i][jj];
-            if(debug) cout <<i<<","<<j1<<"-"<<j2<<": "<<test<<" "<<isWord(test)<<endl;
-            return isWord(test);
-        }else return true;
+            retword=string(j2-j1-1,0);
+            for(int jj=j1+1;jj<j2;jj++) {
+                retword[jj-j1-1]=board[i][jj];
+                score+=val[board[i][jj]-'a'];
+                //cout<<board[i][j]-'a'<<endl;
+            }
+            if(debug) cout <<i<<","<<j1<<"-"<<j2<<": "<<retword<<" "<<isWord(retword)<<endl;
+            if(illegal) return score;
+            if(!isWord(retword)) return -1;
+            else return score;
+        }else return 1;
     }else{
-        if(checkall || adj[1][i][j]){ //check vert
+        if(nonadj || adj[1][i][j]){ //check vert
             int i1=i; while(board[--i1][j]>1);
             int i2=i; while(board[++i2][j]>1);
-            if(i2-i1==2) return true;
+            /*if(i2-i1==2){
+                retword=string(1,board[i][j]);
+                return val[board[i][j]-'a'];
+            }*/
 
-            string test(i2-i1-1,0);
-            for(int ii=i1+1;ii<i2;ii++) test[ii-i1-1]=board[ii][j];
-            if(debug) cout <<i1<<"-"<<i2<<","<<j<<": "<<test<<" "<<isWord(test)<<endl;
-            return isWord(test);
-        } else return true;
+            retword=string(i2-i1-1,0);
+            for(int ii=i1+1;ii<i2;ii++){
+                retword[ii-i1-1]=board[ii][j];
+                score+=val[board[ii][j]-'a'];
+            }
+            if(debug) cout <<i1<<"-"<<i2<<","<<j<<": "<<retword<<" "<<isWord(retword)<<endl;
+            if(illegal) return score;
+            if(!isWord(retword)) return -1;
+            else return score;
+        } else return 1;
     }
     //remember to return true!!!
 }
 
-//string test(13,0);
 bool islegal(int i,int j){
-    return islegal(i,j,true)&&islegal(i,j,false);
+    return scoreword(i,j,true)!=-1 && scoreword(i,j,false)!=-1;
 }
-
+//inefficient islegal just for cmd line purposes
 bool islegal(const Move &m){
     bool ret=true;
     if(m.across){
-        for(int j=0;j<m.length;j++){
-            if(m.word[j]!=1)
-                board[m.row][m.col+j]=m.word[j];
-        }
+        for(int j=0;j<m.length;j++)
+            swap(board[m.row][m.col+j],m.word[j]);
+        
         for(int j=0;j<m.length;j++){
             if(!islegal(m.row,m.col+j)){
                 ret=false;break;
             }
         }
-        for(int j=0;j<m.length;j++){
-            if(m.word[j]!=1)
-                board[m.row][m.col+j]=0;
-        }
+        for(int j=0;j<m.length;j++)
+            swap(board[m.row][m.col+j],m.word[j]);
+        
     }else{
         for(int i=0;i<m.length;i++){
-            if(m.word[i]!=1)
-                board[m.row+i][m.col]=m.word[i];
+            swap(board[m.row+i][m.col],m.word[i]);
         }
         for(int i=0;i<m.length;i++){
             if(!islegal(m.row+i,m.col)){
@@ -106,34 +128,35 @@ bool islegal(const Move &m){
             }
         }
         for(int i=0;i<m.length;i++){
-            if(m.word[i]!=1)
-                board[m.row+i][m.col]=0;
+            swap(board[m.row+i][m.col],m.word[i]);
         }
     }
     return ret;
 }
 
-string ms(char a,char b){
-    return string(1,a)+b;
-}
 //TODO: Non-contiguous moves
-void findmovesat(int i,int j,bool acr,char* wordsofar=new char[11],int len=0,bool hasadjyet=false){
-    if(board[i][j]) return;//change this later
+int accadj; //accumulates the adjacent word scores
+void findmovesat(int i,int j,bool acr,int len=0,bool hasadjyet=false){
+    if(board[i][j]==1) return; // outside board
 
+    if(board[i][j]){ // on an occupied square
+        findmovesat(i+!acr,j+acr,acr,len+1,hasadjyet || adj[0][i][j] || adj[1][i][j]);
+        return;
+    }
+    // on an empty square
     for(int itc=0;itc<rack.size();itc++){
         char c=rack[itc];
         if(!legal[acr][c-'a'][i][j]) continue;
         board[i][j]=c;
-        wordsofar[len]=c;
-        if(hasadjyet || adj[1][i][j]){
-            if(islegal(i,j,acr,true)){
-                moves.push_back(Move(wordsofar,len+1,i-len*!acr,j-len*acr,acr));
-            }
+        if(hasadjyet || adj[0][i][j] || adj[1][i][j]){
+            int sc=scoreword(i,j,acr,true);
+            if(sc!=-1)
+                moves.push_back(Move(retword,retword.size(),i-len*!acr,j-len*acr,acr,sc));
         }
         if(rack.size()>1){
             rack[itc]=rack.back();
             rack.pop_back();
-            findmovesat(i+!acr,j+acr,acr,wordsofar,len+1,hasadjyet || adj[1][i][j]);
+            findmovesat(i+!acr,j+acr,acr,len+1,hasadjyet || adj[0][i][j] || adj[1][i][j]);
             rack.push_back(rack[itc]);
             rack[itc]=c;
         }
@@ -155,11 +178,12 @@ void findmoves(){
     }*/
     for(int i=1;i<=11;i++){
         for(int j=1;j<=11;j++){
-            findmovesat(i,j,true);
-            //findmovesat(i,j,false);
+            if(board[i][j]==0) {
+                findmovesat(i,j,true);
+                findmovesat(i,j,false);
+            }
         }
     }
-
 }
 
 void init(){
@@ -175,10 +199,12 @@ void init(){
 
     fs.open("letters.txt");
     while(fs){
-        char ch;int number,value;cin>>ch>>number>>value;
+        char ch;int number,value;fs>>ch>>number>>value;
         num[ch-'A']=number;
         val[ch-'A']=value;
     }
+    //for(int i:val) cout <<i <<" "<<endl;
+    fs.close();
     /*
     for(char c='a';c<='z';c++){
         string ss(1,c);
@@ -219,13 +245,16 @@ void print(const bool (&arr)[13][13],string s){
 }
 
 void print(const int (&arr)[13][13],string s){
+    ios init(NULL);
+    init.copyfmt(cout);
     cout<<s<<endl;
     for(int i=0;i<=12;i++){
         for(int j=0;j<=12;j++){
-            cout<<arr[i][j];
+            cout<<setfill(' ')<<setw(3)<<arr[i][j];
         }
         cout<<endl;
     }
+    cout.copyfmt(init);
 }
 
 void printboard(){
@@ -257,8 +286,8 @@ void calclegal(char c){
         for(int j=1;j<=11;j++){
             if(board[i][j]==0){
                 board[i][j]=c;
-                legal[0][c-'a'][i][j]=islegal(i,j,true);
-                legal[1][c-'a'][i][j]=islegal(i,j,false);
+                legal[0][c-'a'][i][j]=scoreword(i,j,true)!=-1;
+                legal[1][c-'a'][i][j]=scoreword(i,j,false)!=-1;
                 board[i][j]=0;
             }else{
                 legal[0][c-'a'][i][j]=legal[1][c-'a'][i][j]=false;
@@ -324,6 +353,7 @@ void docommand(string s){
         if(ss!="nc")
             calclegalall();
         findmoves();
+        sort(moves.rbegin(),moves.rend());
         for(Move &m:moves){
             cout <<m<<endl;
         }
