@@ -12,4 +12,6 @@ ${EXEC}: ${OBJECTS}
 .PHONY: clean # not a file name
 clean: # remove files that can be regenerated
 	rm -rf ${DEPENDS} ${OBJECTS} ${EXEC}
+	
+all: a
 

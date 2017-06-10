@@ -1,6 +1,6 @@
 #include <iostream>
 #include <cstring>
-
+#include <iomanip>
 class Move {
 public:
     char* word; //assume this is a valid word
@@ -24,16 +24,20 @@ public:
     	this->rackused=rackused;
     }
 
-    Move(std::string word,int length,int r,int c,bool across=true, int score=0,int rackused=0): 
-        Move(word.c_str(),length,r,c,across,score,rackused) {};
+    Move(const std::string & word,int r,int c,bool across=true, int score=0,int rackused=0): 
+        Move(word.c_str(),word.size(),r,c,across,score,rackused) {};
+
     friend std::ostream &operator<<(std::ostream &out, Move &move);
+
     bool operator< (const Move& other) const {
-        return (score < other.score);
+        return (score < other.score) || (score==other.score && std::string(word)<std::string(other.word));
     }
 };
 
 std::ostream &operator<<(std::ostream &out, Move &m){
-    out<<m.word<<" @ "<<m.row<<","<<m.col<<(m.across?" across":" down");
+    using namespace std;
+    out<<setw(11)<<setfill(' ')<<m.word<<" @"<<
+        setw(2)<<setfill(' ')<<m.row<<","<<setw(2)<<setfill(' ')<<m.col<<(m.across?" acrs":" down");
     if(m.score) out<<" worth "<<m.score;
     return out;
 }

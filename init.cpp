@@ -14,7 +14,7 @@ int main(){
 		all.push_back(s);
 	}
 	cout <<all.size()<<" words found"<<endl;
-	unordered_map<string,vector<int>> stuff;
+	unordered_map<string,vector<int> > stuff;
 	for(char c='a';c<='z';c++){
 		string ss(1,c);
 		cout << "Building "<<ss<<endl;
@@ -39,6 +39,7 @@ int main(){
 		for(char d=c+1;d<='z';d++){
 			for(char e=d+1;e<='z';e++){
 				string ss(1,c);ss.push_back(d);
+
 				vector<int> cdstrings=stuff[ss];
 				ss.push_back(e);
 				cout << "Building "<<ss<<endl;
