@@ -4,6 +4,7 @@ Bot that plays Words with Friends
 Usage: ./a [-b <boardfile>] [-t <tilefile>] [-d <dictionaryfile>]
 
 Commands:
+
 	pm [-f] <word> [row(1-11)] [column(1-11)] [down(d)]
 		Plays a move. Default is horizontal in the center of the board.
 		-f: forces the move even if illegal
