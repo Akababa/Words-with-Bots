@@ -8,6 +8,7 @@ public:
     int row,col;
     bool across;
     int score,rackused;
+    static int blankrow,blankcol; //position of the blank square
 
     /*
     * Assume word passed in is valid

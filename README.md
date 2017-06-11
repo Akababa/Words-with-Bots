@@ -13,6 +13,8 @@ Commands:
 	pb [-k]
 		Plays the best move with the given rack (currently the highest-scoring move)
 		-k: keep the tiles on the rack
+	il <word> <row(1-11)> <column(1-11)> <down(d)>
+		Displays info about a move, including score and legality. Uses same syntax as pm.
 	rm <row(1-11)> <column(1-11)>
 		Removes the letter at the position
 	ra [+<letters>] [-<letters>]

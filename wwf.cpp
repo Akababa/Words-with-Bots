@@ -20,6 +20,7 @@ int ***adj; //scores of words in perpendicular directions
 bool ****legal;
 int **wordmult;
 int **letrmult;
+int **points; //point values of placed tiles
 
 vector<char> bag;
 vector<Move> moves;
@@ -44,9 +45,9 @@ void calcadj(){
                 for(int ii=-1;ii<=1;ii++){
                     for(int jj=-1;jj<=1;jj++){
                         if((ii+jj)%2 && board[i+ii][j+jj]>1) {
-                            board[i][j]='A'+26; // dummy character to discount ij
+                            //board[i][j]='A'+26; // dummy character to discount ij
                             adj[ii*ii][i][j]=scoreword(i,j,jj!=0,true,true);
-                            board[i][j]=0;
+                            //board[i][j]=0;
                         }
                     }
                 }
@@ -75,7 +76,7 @@ int scoreword(int i,int j,bool across,bool nonadj=false,bool illegal=false){
             retword=string(j2-j1-1,0);
             for(int jj=j1+1;jj<j2;jj++) {
                 retword[jj-j1-1]=board[i][jj];
-                score+=val[board[i][jj]-'A'];
+                score+=points[i][jj];
             }
             if(debug) cout <<i<<","<<j1<<"-"<<j2<<": "<<retword<<" "<<isWord(retword)<<endl;
             if(illegal) return score;
@@ -89,7 +90,7 @@ int scoreword(int i,int j,bool across,bool nonadj=false,bool illegal=false){
             retword=string(i2-i1-1,0);
             for(int ii=i1+1;ii<i2;ii++){
                 retword[ii-i1-1]=board[ii][j];
-                score+=val[board[ii][j]-'A'];
+                score+=points[ii][j];
             }
             if(debug) cout <<i1<<"-"<<i2<<","<<j<<": "<<retword<<" "<<isWord(retword)<<endl;
             if(illegal) return score;
@@ -104,16 +105,18 @@ int scoreword(int i,int j,bool across,bool nonadj=false,bool illegal=false){
 // accadj accumulates the adjacent word scores
 // accletr accumulates the letter scores (incl. bonus)
 // wmult is the cumulative word multiplier
+// TODO: Blank tiles don't count for points, use a dedicated point array to solve this
 void findmovesat(int i,int j,bool acr,string accword="",int accadj=0,int accletr=0,int wmult=1){
     if(board[i][j]){ // on a non-empty square
         if(board[i][j]==1) return;
-        findmovesat(i+!acr,j+acr,acr,accword+board[i][j],accadj,accletr+val[board[i][j]-'A'],wmult); //passed letter doesn't count
+        findmovesat(i+!acr,j+acr,acr,accword+board[i][j],accadj,accletr+points[i][j],wmult); //passed letter doesn't count
         return;
     }
     const bool checkleaves=accadj || adj[0][i][j] || adj[1][i][j];
     // on an empty square
     for(int idc=racksize;idc--;) {
         if(rack[idc]-'A'==26){ //this is the wildcard
+            rack[idc]=rack[--racksize];
             for(char c='A';c<='Z';c++){
                 if(!legal[acr][c-'A'][i][j]) continue; //adjacent word illegal, abort
                 if(checkleaves){ 
@@ -123,7 +126,7 @@ void findmovesat(int i,int j,bool acr,string accword="",int accadj=0,int accletr
                         int bonus=0; //any remaining score goes here
                         while(board[ii+=!acr][jj+=acr]>1){
                             extra.push_back(board[ii][jj]);
-                            bonus+=val[board[ii][jj]-'A'];
+                            bonus+=points[ii][jj];
                         }
                         if(isWord(accword+extra)){
                             moves.push_back(Move(accword+extra, i-accword.size()*!acr, j-accword.size()*acr, acr,
@@ -137,20 +140,19 @@ void findmovesat(int i,int j,bool acr,string accword="",int accadj=0,int accletr
                             accadj+ //previous adjacent scores are unchanged
                             wordmult[i][j]* (adj[acr][i][j] + //adj from this letter
                             wmult* accletr ) //accumulated letters+last letter
-                            ));
+                            ));                                            
                     }
                 }
                 if(racksize>1){
-                    rack[idc]=rack[--racksize];
                     findmovesat(i+!acr, j+acr, acr, accword+c, 
                         accadj+ wordmult[i][j]* 
-                        (adj[acr][i][j]?adj[acr][i][j] + letrmult[i][j]*val[c-'A']:0), //letter mult
-                        accletr+ letrmult[i][j]*val[c-'A'],
+                        adj[acr][i][j], //letter mult
+                        accletr,
                         wmult*wordmult[i][j]); //word multiplier
-                    rack[racksize++]=rack[idc];
-                    rack[idc]=c;
                 }
             }
+            rack[racksize++]=rack[idc];
+            rack[idc]='A'+26;
             continue;
         }
         char c=rack[idc];
@@ -162,14 +164,17 @@ void findmovesat(int i,int j,bool acr,string accword="",int accadj=0,int accletr
                 int bonus=0; //any remaining score goes here
                 while(board[ii+=!acr][jj+=acr]>1){
                     extra.push_back(board[ii][jj]);
-                    bonus+=val[board[ii][jj]-'A'];
+                    bonus+=points[ii][jj];
                 }
                 if(isWord(accword+extra)){
                     moves.push_back(Move(accword+extra, i-accword.size()*!acr, j-accword.size()*acr, acr,
                         accadj+ //previous adjacent scores are unchanged
                         wordmult[i][j]* ( (adj[acr][i][j]? adj[acr][i][j] + letrmult[i][j]*val[c-'A'] :0) + //adj from this letter
                         wmult* (accletr+bonus+ letrmult[i][j]*val[c-'A']) ) //accumulated letters+last letter
-                        ));
+                        ));                                           
+                    //if(accword+extra=="NEWSLETTERS")cout<<accadj<<" "<<accletr<<" "<<wmult<<" "<<wordmult[i][j]<<
+                    //    " "<<c<<" "<<i<<","<<j<<"exra:"<<extra<<"+"<<bonus<<endl;
+
                 }
             }else if (isWord(accword+c)){ // no trailing letters
                 moves.push_back(Move(accword+c, i-accword.size()*!acr, j-accword.size()*acr, acr,
@@ -177,7 +182,7 @@ void findmovesat(int i,int j,bool acr,string accword="",int accadj=0,int accletr
                     wordmult[i][j]* ( (adj[acr][i][j]? adj[acr][i][j] + letrmult[i][j]*val[c-'A'] :0) + //adj from this letter
                     wmult* (accletr+ letrmult[i][j]*val[c-'A']) ) //accumulated letters+last letter
                     ));
-                //if(accword+c=="exscind"&&j==10&&!acr)cout<<accadj<<" "<<accletr<<" "<<wmult<<" "<<wordmult[i][j]<<endl;
+                //if(accword+c=="FIZZ")cout<<accadj<<" "<<accletr<<" "<<wmult<<" "<<wordmult[i][j]<<endl;
             }
         }
         if(racksize>1){
@@ -261,10 +266,12 @@ void init(){
     board = new char*[bt];
     wordmult = new int*[bt];
     letrmult = new int*[bt]; 
+    points = new int*[bt];
     for(int i = 0; i < bt; ++i){
         board[i] = new char[bt];
         letrmult[i]=new int[bt];
         wordmult[i] = new int[bt];
+        points[i]=new int[bt];
         adj[0][i]=new int[bt];
         adj[1][i]=new int[bt];
         for(int j=0;j<27;j++){
@@ -342,10 +349,12 @@ void placemove(const Move &m){
     if(m.across){
         for(int j=0;j<m.length;j++){
             board[m.row][m.col+j]=m.word[j];
+            points[m.row][m.col+j]=val[m.word[j]-'A'];
         }
     }else{
         for(int i=0;i<m.length;i++){
             board[m.row+i][m.col]=m.word[i];
+            points[m.row+i][m.col]=val[m.word[i]-'A'];
         }
     }
 }
@@ -355,9 +364,11 @@ void calclegal(char c){
         for(int j=1;j<=11;j++){
             if(board[i][j]==0){
                 board[i][j]=c;
+                points[i][j]=val[c-'A'];
                 legal[0][c-'A'][i][j]=scoreword(i,j,true);
                 legal[1][c-'A'][i][j]=scoreword(i,j,false);
                 board[i][j]=0;
+                points[i][j]=0;
             }else{
                 legal[0][c-'A'][i][j]=legal[1][c-'A'][i][j]=false;
             }
@@ -369,8 +380,9 @@ void calclegalall(){
     for(char c='A';c<='Z';c++) calclegal(c);
 }
 
-//inefficient islegal just for cmd line purposes
+// inefficient islegal just for cmd line purposes
 // modifies m if it's legal, otherwise returns false
+// Does not mutate the board (!) :D
 bool islegal(Move &m){
     calcadj();
     calclegalall();
@@ -380,7 +392,6 @@ bool islegal(Move &m){
         if(board[i][j]==m.word[nn]) continue;
         if(board[i][j]>1) return false;
         if(!legal[m.across][m.word[nn]-'A'][i][j]) return false;
-
     }
     string acc=m.word;
     int i1=m.row,j1=m.col;
@@ -442,7 +453,7 @@ void docommand(string ssss){
     }else if(com=="rm"){
         int i,j;
         if(!(line>>i>>j)) return;
-        board[i][j]=0;
+        board[i][j]=points[i][j]=0;
         calcadj();
     }else if(com=="pr"){
         string ss;line>>ss;
