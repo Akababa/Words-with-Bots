@@ -15,11 +15,11 @@ bool debug=false;
 bool start=true;
 
 unordered_set<string> words; //dictionary
-char board[13][13];
-int adj[2][13][13]; //scores of words in perpendicular directions
-bool legal[2][27][13][13];
-int wordmult[13][13];
-int letrmult[13][13];
+char **board;
+int ***adj; //scores of words in perpendicular directions
+bool ****legal;
+int **wordmult;
+int **letrmult;
 
 vector<char> bag;
 vector<Move> moves;
@@ -28,6 +28,8 @@ int racksize=0;
 //vector<string> letters[26]; 
 int val[27];
 int num[26];
+int bsize=11;
+string boardfile="wwf/board1.txt",tilefile="wwf/tiles1.txt",dictfile="wwf/dict1.txt";
 
 int scoreword(int i,int j,bool across,bool nonadj,bool illegal);
 
@@ -111,7 +113,7 @@ void findmovesat(int i,int j,bool acr,string accword="",int accadj=0,int accletr
     const bool checkleaves=accadj || adj[0][i][j] || adj[1][i][j];
     // on an empty square
     for(int idc=racksize;idc--;) {
-        if(rack[idc]-'A'==26){
+        if(rack[idc]-'A'==26){ //this is the wildcard
             for(char c='A';c<='Z';c++){
                 if(!legal[acr][c-'A'][i][j]) continue; //adjacent word illegal, abort
                 if(checkleaves){ 
@@ -207,7 +209,11 @@ void findmoves(){
 }
 
 void init(){
-    fstream fs("wwfdict.txt");
+    fstream fs(dictfile);
+    if(!fs){
+        cout<<dictfile <<" not found, reverting to default"<<endl;
+        fs.open("wwf/dict1.txt");
+    }
     words.clear();
     vector<string> all;
     string s;
@@ -218,7 +224,11 @@ void init(){
     }
     fs.close();
 
-    fs.open("letters.txt");
+    fs.open(tilefile);
+    if(!fs){
+        cout<<tilefile <<" not found, reverting to default"<<endl;
+        fs.open("wwf/tiles1.txt");
+    }
     bag.clear();
     while(fs){
         char ch;int number,value;fs>>ch>>number>>value;
@@ -231,13 +241,43 @@ void init(){
     //for(int i:val) cout <<i <<" "<<endl;
     fs.close();
 
-    fs.open("board1.txt");
-    int w,h;fs>>w>>h;
-    for(int i=1;i<12;i++)
-        for(int j=1;j<12;j++)
+    fs.open(boardfile);
+    if(!fs){
+        cout<<board <<" not found, reverting to default"<<endl;
+        fs.open("wwf/board1.txt");
+    }
+    fs>>bsize;
+    int bt=bsize+2;
+    adj = new int**[2]; //scores of words in perpendicular directions
+    adj[0] = new int*[bt]; adj[1]=new int*[bt];
+    legal = new bool***[2];
+    legal[0]=new bool**[27];
+    legal[1]=new bool**[27];
+    for(int j=0;j<27;j++){
+        legal[0][j]=new bool*[bt];
+        legal[1][j]=new bool*[bt];
+    }
+
+    board = new char*[bt];
+    wordmult = new int*[bt];
+    letrmult = new int*[bt]; 
+    for(int i = 0; i < bt; ++i){
+        board[i] = new char[bt];
+        letrmult[i]=new int[bt];
+        wordmult[i] = new int[bt];
+        adj[0][i]=new int[bt];
+        adj[1][i]=new int[bt];
+        for(int j=0;j<27;j++){
+            legal[0][j][i]=new bool[bt];
+            legal[1][j][i]=new bool[bt];
+        }
+    }
+
+    for(int i=1;i<bsize+1;i++)
+        for(int j=1;j<bsize+1;j++)
             letrmult[i][j]=1;
-    for(int i=1;i<12;i++)
-        for(int j=1;j<12;j++)
+    for(int i=1;i<bsize+1;i++)
+        for(int j=1;j<bsize+1;j++)
             wordmult[i][j]=1;
     
     while(fs){
@@ -247,37 +287,37 @@ void init(){
         if(lw[0]=='L'){
             for(int i=n;i--;){
                 int a,b;fs>>a>>b;
-                letrmult[a][b]=letrmult[a][w+1-b]=letrmult[h+1-a][b]=letrmult[h+1-a][w+1-b]=mult;
+                letrmult[a][b]=letrmult[a][bsize+1-b]=letrmult[bsize+1-a][b]=letrmult[bsize+1-a][bsize+1-b]=mult;
             }
         }else{
             for(int i=n;i--;){
                 int a,b;fs>>a>>b;
-                wordmult[a][b]=wordmult[a][w+1-b]=wordmult[h+1-a][b]=wordmult[h+1-a][w+1-b]=mult;
+                wordmult[a][b]=wordmult[a][bsize+1-b]=wordmult[bsize+1-a][b]=wordmult[bsize+1-a][bsize+1-b]=mult;
             }
         }
     }
-    for(int i=0;i<13;i++){
-        for(int j=0;j<13;j++){
-            if((i%12)*(j%12)==0) board[i][j]=1;
+    for(int i=0;i<bt;i++){
+        for(int j=0;j<bt;j++){
+            if((i%(bt-1))*(j%(bt-1))==0) board[i][j]=1;
             else board[i][j]=0;
         }
     }
 }
 
-void print(const bool (&arr)[13][13],string s){
+void print(bool** arr,string s){
     cout<<s<<endl;
-    for(int i=0;i<=12;i++){
-        for(int j=0;j<=12;j++){
+    for(int i=1;i<=bsize;i++){
+        for(int j=1;j<=bsize;j++){
             cout<<arr[i][j];
         }
         cout<<endl;
     }
 }
 
-void print(const int (&arr)[13][13],string s,int width=1){
+void print(int** arr,string s,int width=1){
     cout<<s<<endl;
-    for(int i=0;i<=12;i++){
-        for(int j=0;j<=12;j++){
+    for(int i=1;i<=bsize;i++){
+        for(int j=1;j<=bsize;j++){
             cout<<setfill(' ')<<setw(width)<<arr[i][j];
         }
         cout<<endl;
@@ -286,11 +326,11 @@ void print(const int (&arr)[13][13],string s,int width=1){
 
 void printboard(){
     cout<<"board:"<<endl;
-    for(int i=0;i<=12;i++){
-        for(int j=0;j<=12;j++){
+    for(int i=0;i<=bsize;i++){
+        for(int j=0;j<=bsize;j++){
             switch(board[i][j]){
-                case 0: cout<<(i==6&&j==6?'+':'#');break;
-                case 1: cout<<(i+j<10?i+j:0); break;
+                case 0: cout<<(i==(bsize+1)/2&&j==(bsize+1)/2?'+':'#');break;
+                case 1: cout<<((i+j)%10); break;
                 default: cout <<board[i][j];
             }
         }
@@ -386,7 +426,7 @@ void docommand(string ssss){
     }else if(com=="pm"){
         int i,j;string ss,acr;
         if(!(line>>ss)) return;
-        if(!(line>>i) || !(line>>j)) i=j=6;
+        if(!(line>>i) || !(line>>j)) i=j=(bsize+1)/2;
         else if(!(line>>acr)) acr="a";
         for(char &c:ss) c=toupper(c);
         placemove(Move(ss,i,j,acr[0]!='d'));
@@ -448,10 +488,24 @@ void docommand(string ssss){
         for(int i=0;i<racksize;i++) cout<<rack[i];
         cout<<endl;
     }else if(com=="lm"){
-        string ss;line>>ss;
+        string st;
+        int n=999999,s=0;
+        while(line>>st) {
+            if(st[0]!='-') continue;
+            stringstream ss{st.substr(3)};
+            switch(st[1]){
+                case 'n':
+                if(!(ss>>n)) n=999999;
+                break;
+                case 's':
+                if(!(ss>>s)) s=0;
+                break;
+            }
+        }
         findmoves();
         sort(moves.rbegin(),moves.rend());
         for(Move &m:moves){
+            if(m.score<s || n--==0) break;
             cout <<m<<endl;
         }
     }else if(com=="db") line>>debug;
@@ -466,13 +520,23 @@ void docommand(string ssss){
         string w;if(!(line>>w)) return;
         cout << isWord(w)<<endl;
     }else if(com=="clear"){
-        for(int i=0;i<13;i++)
-            for(int j=0;j<13;j++)
-                if((i%12)*(j%12)==0) board[i][j]=1; else board[i][j]=0;
+        for(int i=0;i<bsize+2;i++)
+            for(int j=0;j<bsize+2;j++)
+                if((i%bsize+1)*(j%bsize+1)==0) board[i][j]=1; else board[i][j]=0;
     }
 }
 
-int main(){
+int main(int argc, char* argv[]){
+    for(int i=argc;i--;){
+        char * s=argv[i];
+        if(s[0]!='-') continue;
+        stringstream ss(s+3); //undefined behaviour here but whatever, it works for now
+        switch(s[1]){
+            case 'b': ss>>boardfile; break;
+            case 't': ss>>tilefile;break;
+            case 'd': ss>>dictfile;break;
+        }
+    }
     init();
     calcadj();
     while(cin){
