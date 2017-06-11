@@ -5,7 +5,9 @@ With the ability to determine the highest scoring move on any board instantaneou
 
 Usage:
 
-	./a [-b=<boardfile>] [-t=<tilefile>] [-d=<dictionaryfile>] [-c=<configfolder>]
+	./a [-b=<boardfile>] [-t=<tilefile>] [-d=<dictionaryfile>] [-c=<configfolder>] [-r=<depth>]
+
+	-r: Forces a rebuild of the trie with given depth (max 5 for now)
 
 Commands:
 
@@ -35,7 +37,9 @@ Commands:
 		p: print board tile values (0 for blanks)
 	word <word>
 		Check if <word> is in the dictionary
+	ip <string>
+		Check if a string is in the trie
 	file <filename>
 		Take the file as input (like a pipe without EOF)
 	clear
-		Clears the board
+		Clears the board and resets the first move flag

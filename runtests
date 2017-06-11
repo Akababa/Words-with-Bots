@@ -1,5 +1,6 @@
 #!/bin/bash
 
-./a < tests/sh1 | cmp tests/sh1.out
-./a < tests/t2 | cmp tests/t2.out
-./a -c=wwf15 < tests/rec2 | cmp tests/rec2.out
+./a "$1" < tests/sh1 | cmp tests/sh1.out
+./a "$1" < tests/t2 | cmp tests/t2.out
+./a -c=wwf15 "$1" < tests/recbig | cmp tests/recbig.out
+./a -c=wwf15 "$1" < tests/rec2 | cmp tests/rec2.out
