@@ -1,7 +1,9 @@
 # Words-with-Bots
 Bot that plays Words with Friends
 
-Usage: ./a [-b <boardfile>] [-t <tilefile>] [-d <dictionaryfile>]
+Usage:
+
+	./a [-b <boardfile>] [-t <tilefile>] [-d <dictionaryfile>]
 
 Commands:
 
