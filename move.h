@@ -8,12 +8,12 @@ public:
     int row,col;
     bool across;
     int score,rackused;
-    static int blankrow,blankcol; //position of the blank square
+    int blankpos;
 
     /*
     * Assume word passed in is valid
     */
-    Move(const char* word,int length,int r,int c,bool across=true, int score=0,int rackused=0){
+    private: Move(const char* word,int length,int r,int c,bool across=true, int score=0,int rackused=0,int blankpos=-1){
         this->word=new char[length+1];
         std::memcpy(this->word,word,length);
         this->word[length]=0;
@@ -23,10 +23,11 @@ public:
         this->across=across;
     	this->score=score;
     	this->rackused=rackused;
+        this->blankpos=blankpos;
     }
 
-    Move(const std::string & word,int r,int c,bool across=true, int score=0,int rackused=0): 
-        Move(word.c_str(),word.size(),r,c,across,score,rackused) {};
+    public: Move(const std::string & word,int r,int c,bool across=true, int score=0,int rackused=0,int blankpos=-1): 
+        Move(word.c_str(),word.size(),r,c,across,score,rackused,blankpos) {};
 
     friend std::ostream &operator<<(std::ostream &out, Move &move);
 

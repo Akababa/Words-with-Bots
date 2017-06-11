@@ -1,6 +1,17 @@
 pm de 6 6
 pm food 3 6 d
+pm tax 4 8 d
+pm thin 2 9 d
+pm sambuca 4 10 d
+pm wives 11 6
+pm lacy 9 8
+pm omega 10 6
+pm jolter 9 1
+pm sled 8 3 d
+pm qadi 11 1
+pm sin 8 3
 
-ra +xat[caa
-lm 
+
+ra +rzpk
+lm -n=40
 pr b

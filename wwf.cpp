@@ -4,12 +4,14 @@
 #include <unordered_set>
 #include <string>
 #include <vector>
+#include <boost/dynamic_bitset.hpp>
 #include <sstream>
 #include <algorithm>
 #include <random>       // std::default_random_engine
 #include <chrono>       // std::chrono::system_clock
 #include "move.h"
 using namespace std;
+using namespace boost;
 
 bool debug=false;
 bool start=true;
@@ -21,26 +23,27 @@ bool ****legal;
 int **wordmult;
 int **letrmult;
 int **points; //point values of placed tiles
+dynamic_bitset<> chains;
 
 vector<char> bag;
 vector<Move> moves;
 char* rack=new char[999];
 int racksize=0;
-//vector<string> letters[26]; 
 int val[27];
 int num[26];
-int bsize=11;
-string boardfile="wwf/board1.txt",tilefile="wwf/tiles1.txt",dictfile="wwf/dict1.txt";
+int bsize=15;
+int depth,mod; //for pruning
+string boardfile="wwf/board.txt",tilefile="wwf/tiles.txt",dictfile="wwf/dict.txt";
 
 int scoreword(int i,int j,bool across,bool nonadj,bool illegal);
 
 //calculates the linear (no multipliers) scores of the word fragments already on the board
 void calcadj(){
-    for(int i=1;i<=11;i++)
-        for(int j=1;j<=11;j++)
+    for(int i=1;i<=bsize;i++)
+        for(int j=1;j<=bsize;j++)
             adj[0][i][j]=adj[1][i][j]=0;
-    for(int i=1;i<=11;i++){
-        for(int j=1;j<=11;j++){
+    for(int i=1;i<=bsize;i++){
+        for(int j=1;j<=bsize;j++){
             if(board[i][j]==0){
                 for(int ii=-1;ii<=1;ii++){
                     for(int jj=-1;jj<=1;jj++){
@@ -101,24 +104,49 @@ int scoreword(int i,int j,bool across,bool nonadj=false,bool illegal=false){
     //remember to return true!!!
 }
 
+void calclegal(char c){
+    for(int i=1;i<=bsize;i++){
+        for(int j=1;j<=bsize;j++){
+            if(board[i][j]==0){
+                board[i][j]=c;
+                //points[i][j]=val[c-'A']; //no need to set points if we only care about legality
+                legal[0][c-'A'][i][j]=scoreword(i,j,true);
+                legal[1][c-'A'][i][j]=scoreword(i,j,false);
+                board[i][j]=0;
+                //points[i][j]=0;
+            }else{
+                legal[0][c-'A'][i][j]=legal[1][c-'A'][i][j]=false;
+            }
+        }
+    }
+}
+
+void calclegalall(){
+    for(char c='A';c<='Z';c++) calclegal(c);
+}
 // accword is the cumulative word fragment
 // accadj accumulates the adjacent word scores
 // accletr accumulates the letter scores (incl. bonus)
 // wmult is the cumulative word multiplier
-// TODO: Blank tiles don't count for points, use a dedicated point array to solve this
-void findmovesat(int i,int j,bool acr,string accword="",int accadj=0,int accletr=0,int wmult=1){
+// DONE: Blank tiles don't count for points, use a dedicated point array to solve this
+// TODO: using full rack bonus
+string accword;
+void findmovesat(int i,int j,bool acr,int accadj=0,int accletr=0,int wmult=1,int blankpos=-1,int rhash=0){
     if(board[i][j]){ // on a non-empty square
         if(board[i][j]==1) return;
-        findmovesat(i+!acr,j+acr,acr,accword+board[i][j],accadj,accletr+points[i][j],wmult); //passed letter doesn't count
+        accword.push_back(board[i][j]);
+        findmovesat(i+!acr,j+acr,acr,accadj,accletr+points[i][j],wmult,blankpos,(rhash*27+board[i][j]-'A'+1)%mod); //passed letter doesn't count
+        accword.pop_back();
         return;
     }
     const bool checkleaves=accadj || adj[0][i][j] || adj[1][i][j];
     // on an empty square
     for(int idc=racksize;idc--;) {
-        if(rack[idc]-'A'==26){ //this is the wildcard
+        if(rack[idc]-'A'==26){ //this is a blank
             rack[idc]=rack[--racksize];
             for(char c='A';c<='Z';c++){
                 if(!legal[acr][c-'A'][i][j]) continue; //adjacent word illegal, abort
+                if(chains[(rhash*27+c-'A'+1)%mod]==0) continue; //impossible word, abort
                 if(checkleaves){ 
                     if(board[i+!acr][j+acr]>1){ // takes care of trailing letters
                         int ii=i,jj=j;
@@ -132,23 +160,29 @@ void findmovesat(int i,int j,bool acr,string accword="",int accadj=0,int accletr
                             moves.push_back(Move(accword+extra, i-accword.size()*!acr, j-accword.size()*acr, acr,
                                 accadj+ //previous adjacent scores are unchanged
                                 wordmult[i][j]* (adj[acr][i][j] + //adj from this letter
-                                wmult* (accletr+bonus) ) //accumulated letters+last letter
-                                ));
+                                wmult* (accletr+bonus) ) + //accumulated letters+last letter
+                                (racksize==1)*35, //bonus 35 for empty rack
+                                accword.size()));
                         }
                     }else if (isWord(accword+c)){ // no trailing letters
                         moves.push_back(Move(accword+c, i-accword.size()*!acr, j-accword.size()*acr, acr,
                             accadj+ //previous adjacent scores are unchanged
                             wordmult[i][j]* (adj[acr][i][j] + //adj from this letter
-                            wmult* accletr ) //accumulated letters+last letter
-                            ));                                            
+                            wmult* accletr ) + //accumulated letters+last letter
+                            (racksize==1)*35,
+                            accword.size()));                                            
                     }
                 }
                 if(racksize>1){
-                    findmovesat(i+!acr, j+acr, acr, accword+c, 
+                    accword.push_back(c);
+                    findmovesat(i+!acr, j+acr, acr, 
                         accadj+ wordmult[i][j]* 
                         adj[acr][i][j], //letter mult
                         accletr,
-                        wmult*wordmult[i][j]); //word multiplier
+                        wmult*wordmult[i][j], //word multiplier
+                        accword.size(),
+                        (rhash*27+c-'A'+1)%mod);
+                    accword.pop_back();
                 }
             }
             rack[racksize++]=rack[idc];
@@ -156,7 +190,8 @@ void findmovesat(int i,int j,bool acr,string accword="",int accadj=0,int accletr
             continue;
         }
         char c=rack[idc];
-        if(!legal[acr][c-'A'][i][j]) continue; //adjacent word illegal, abort
+        if(!legal[acr][c-'A'][i][j]) continue; //adjacent word illegal, abort //good chunk of time spent here
+        if(chains[(rhash*27+c-'A'+1)%mod]==0) continue; //impossible word, abort
         if(checkleaves){ 
             if(board[i+!acr][j+acr]>1){ // takes care of trailing letters
                 int ii=i,jj=j;
@@ -170,8 +205,9 @@ void findmovesat(int i,int j,bool acr,string accword="",int accadj=0,int accletr
                     moves.push_back(Move(accword+extra, i-accword.size()*!acr, j-accword.size()*acr, acr,
                         accadj+ //previous adjacent scores are unchanged
                         wordmult[i][j]* ( (adj[acr][i][j]? adj[acr][i][j] + letrmult[i][j]*val[c-'A'] :0) + //adj from this letter
-                        wmult* (accletr+bonus+ letrmult[i][j]*val[c-'A']) ) //accumulated letters+last letter
-                        ));                                           
+                        wmult* (accletr+bonus+ letrmult[i][j]*val[c-'A']) ) + //accumulated letters+last letter
+                        (racksize==1)*35,
+                        blankpos));                                           
                     //if(accword+extra=="NEWSLETTERS")cout<<accadj<<" "<<accletr<<" "<<wmult<<" "<<wordmult[i][j]<<
                     //    " "<<c<<" "<<i<<","<<j<<"exra:"<<extra<<"+"<<bonus<<endl;
 
@@ -180,29 +216,35 @@ void findmovesat(int i,int j,bool acr,string accword="",int accadj=0,int accletr
                 moves.push_back(Move(accword+c, i-accword.size()*!acr, j-accword.size()*acr, acr,
                     accadj+ //previous adjacent scores are unchanged
                     wordmult[i][j]* ( (adj[acr][i][j]? adj[acr][i][j] + letrmult[i][j]*val[c-'A'] :0) + //adj from this letter
-                    wmult* (accletr+ letrmult[i][j]*val[c-'A']) ) //accumulated letters+last letter
-                    ));
+                    wmult* (accletr+ letrmult[i][j]*val[c-'A']) ) + //accumulated letters+last letter
+                    (racksize==1)*35,
+                    blankpos));
                 //if(accword+c=="FIZZ")cout<<accadj<<" "<<accletr<<" "<<wmult<<" "<<wordmult[i][j]<<endl;
             }
         }
         if(racksize>1){
             rack[idc]=rack[--racksize];
-            findmovesat(i+!acr, j+acr, acr, accword+c, 
+            accword.push_back(c);
+            findmovesat(i+!acr, j+acr, acr, //wow, all the time is on this line
                 accadj+ wordmult[i][j]* //adjacent accumulator
                 (adj[acr][i][j]?adj[acr][i][j] + letrmult[i][j]*val[c-'A']:0),
                 accletr+ letrmult[i][j]*val[c-'A'], //letter accumulator
-                wmult*wordmult[i][j]); //word multiplier
+                wmult*wordmult[i][j], //word multiplier
+                blankpos,
+                (rhash*27+c-'A'+1)%mod);
+            accword.pop_back(); //new hotspot?
             rack[racksize++]=rack[idc];
             rack[idc]=c;
         }
     }
-    //accword[len]=0;
 }
 
 void findmoves(){
+    calcadj();
+    calclegalall();
     moves.clear();
-    for(int i=1;i<=11;i++){
-        for(int j=1;j<=11;j++){
+    for(int i=1;i<=bsize;i++){
+        for(int j=1;j<=bsize;j++){
             if(board[i][j]==0){ //only look on free squares to avoid redundancy
                 int j1=j; while(board[i][--j1]>1); //go to leftmost taken square on board
                 findmovesat(i,j1+1,true);
@@ -217,7 +259,7 @@ void init(){
     fstream fs(dictfile);
     if(!fs){
         cout<<dictfile <<" not found, reverting to default"<<endl;
-        fs.open("wwf/dict1.txt");
+        fs.open("wwf/dict.txt");
     }
     words.clear();
     vector<string> all;
@@ -232,7 +274,7 @@ void init(){
     fs.open(tilefile);
     if(!fs){
         cout<<tilefile <<" not found, reverting to default"<<endl;
-        fs.open("wwf/tiles1.txt");
+        fs.open("wwf/tiles.txt");
     }
     bag.clear();
     while(fs){
@@ -249,7 +291,7 @@ void init(){
     fs.open(boardfile);
     if(!fs){
         cout<<board <<" not found, reverting to default"<<endl;
-        fs.open("wwf/board1.txt");
+        fs.open("wwf/board.txt");
     }
     fs>>bsize;
     int bt=bsize+2;
@@ -280,11 +322,11 @@ void init(){
         }
     }
 
-    for(int i=1;i<bsize+1;i++)
-        for(int j=1;j<bsize+1;j++)
+    for(int i=1;i<=bsize;i++)
+        for(int j=1;j<=bsize;j++)
             letrmult[i][j]=1;
-    for(int i=1;i<bsize+1;i++)
-        for(int j=1;j<bsize+1;j++)
+    for(int i=1;i<=bsize;i++)
+        for(int j=1;j<=bsize;j++)
             wordmult[i][j]=1;
     
     while(fs){
@@ -303,6 +345,19 @@ void init(){
             }
         }
     }
+    fs.close();
+
+    ifstream in("tests/dict.bin");
+    in.read((char*)&depth,sizeof(int));
+    mod=1;
+    for(int i=depth;i--;mod*=27);//mod=27^depth
+        //cout<<mod<<endl;
+    int y;
+    in.read((char*)&y,sizeof(int));
+    std::vector<dynamic_bitset<>::block_type> u(y);
+    in.read((char*)&u[0],y*sizeof(dynamic_bitset<>::block_type));
+    chains=dynamic_bitset<>(u.begin(),u.end());
+
     for(int i=0;i<bt;i++){
         for(int j=0;j<bt;j++){
             if((i%(bt-1))*(j%(bt-1))==0) board[i][j]=1;
@@ -345,44 +400,20 @@ void printboard(){
     }
 }
 
-void placemove(const Move &m){
-    if(m.across){
-        for(int j=0;j<m.length;j++){
-            board[m.row][m.col+j]=m.word[j];
-            points[m.row][m.col+j]=val[m.word[j]-'A'];
-        }
-    }else{
-        for(int i=0;i<m.length;i++){
-            board[m.row+i][m.col]=m.word[i];
-            points[m.row+i][m.col]=val[m.word[i]-'A'];
-        }
+// overwrite=true overwrites already placed tiles
+void placemove(const Move &m,bool overwrite=false){
+    for(int i=0,j=0;i+j<m.length;i+=!m.across,j+=m.across){
+            if(!overwrite && board[m.row+i][m.col+j]) continue;
+            board[m.row+i][m.col+j]=m.word[i+j];
+            if(i+j!=m.blankpos)
+                points[m.row+i][m.col+j]=val[m.word[i+j]-'A'];
     }
-}
-
-void calclegal(char c){
-    for(int i=1;i<=11;i++){
-        for(int j=1;j<=11;j++){
-            if(board[i][j]==0){
-                board[i][j]=c;
-                points[i][j]=val[c-'A'];
-                legal[0][c-'A'][i][j]=scoreword(i,j,true);
-                legal[1][c-'A'][i][j]=scoreword(i,j,false);
-                board[i][j]=0;
-                points[i][j]=0;
-            }else{
-                legal[0][c-'A'][i][j]=legal[1][c-'A'][i][j]=false;
-            }
-        }
-    }
-}
-
-void calclegalall(){
-    for(char c='A';c<='Z';c++) calclegal(c);
 }
 
 // inefficient islegal just for cmd line purposes
 // modifies m if it's legal, otherwise returns false
 // Does not mutate the board (!) :D
+// doesn't work with blanks, nbd for now
 bool islegal(Move &m){
     calcadj();
     calclegalall();
@@ -407,14 +438,20 @@ bool islegal(Move &m){
     int adjscore=0;
     int wordscore=0;
     int wmult=1;
-    int nn=-1;
+    int nn=0;
+    //cout <<i1<<j1<<i<<j<<endl;
     do{
-        i1+=!m.across;j1+=m.across;nn++;
-        if(board[i1][j1]) continue;
-        adjscore+=wordmult[i1][j1]*(adj[m.across][i1][j1]+letrmult[i1][j1]*val[acc[nn]-'A']);
-        wordscore+=letrmult[i1][j1]*val[acc[nn]-'A'];
-        wmult*=wordmult[i][j];
-    }while(nn<acc.size());
+        i1+=!m.across;j1+=m.across;
+        if(board[i1][j1]) {
+            wordscore+=val[acc[nn]-'A'];
+            continue;
+        }
+        adjscore+= wordmult[i1][j1] * 
+        (adj[m.across][i1][j1]? adj[m.across][i1][j1] + letrmult[i1][j1] * val[acc[nn]-'A']:0);
+        wordscore+= letrmult[i1][j1] * val[acc[nn]-'A']; 
+        wmult*= wordmult[i1][j1];
+    }while(++nn<acc.size());
+    //cout <<adjscore<<wordscore<<wmult;
 
     m.score=adjscore+wmult*wordscore;
     return true;
@@ -432,29 +469,31 @@ void docommand(string ssss){
         printboard();
         cout <<mm<<endl;
         docommand("ra -"+string(mm.word));
-        calcadj();
-        calclegalall();
     }else if(com=="pm"){
-        int i,j;string ss,acr;
+        bool override=false;
+        int i,j,p;string ss,acr;
         if(!(line>>ss)) return;
+        if(ss=="-f") {
+            override=true;
+            if(!(line>>ss)) return;
+        }
         if(!(line>>i) || !(line>>j)) i=j=(bsize+1)/2;
-        else if(!(line>>acr)) acr="a";
+        if(!(line>>acr)) acr="a";
+        if(!(line>>p)) p=-1;
         for(char &c:ss) c=toupper(c);
-        placemove(Move(ss,i,j,acr[0]!='d'));
-        calcadj();
-        calclegalall();
+        placemove(Move(ss,i,j,acr[0]!='d',0,0,p),override);
     }else if(com=="il"){
         int i,j;string ss,acr;       
         if(!(line>>ss>>i>>j)) return;
         if(line) line>>acr; else acr='d';
-        Move m(ss.c_str(),ss.size(),i,j,acr[0]!='d');
+        for(char &c:ss) c=toupper(c);
+        Move m(ss,i,j,acr[0]!='d');
         bool leg=islegal(m);
         cout<<m<<" legal: "<<leg<<endl;
     }else if(com=="rm"){
         int i,j;
         if(!(line>>i>>j)) return;
         board[i][j]=points[i][j]=0;
-        calcadj();
     }else if(com=="pr"){
         string ss;line>>ss;
         for(char cc:ss){
@@ -471,11 +510,13 @@ void docommand(string ssss){
                     break;
                 case 'l': print(letrmult,"letter multipliers:"); break;
                 case 'w': print(wordmult,"word multipliers:"); break;
+                case 'p': print(points,"tile values:",3); break;
             }
         }
     }else if(com=="cl"){
         string ss;
         if(!(line>>ss)) return;
+        ss[0]=toupper(ss[0]);
         calclegal(ss[0]);
         print(legal[0][ss[0]-'A'],"legal[0]["+ss+"]");
         print(legal[1][ss[0]-'A'],"legal[1]["+ss+"]");
@@ -491,8 +532,8 @@ void docommand(string ssss){
             }
             if(ss[0]=='-')
                 for(int i=1;i<ss.size();i++) {
-                    char*  t=find(rack,rack+racksize,ss[i]);
-                    move(t,rack+racksize--,t-1);
+                    char*  t=find(rack,rack+racksize,toupper(ss[i]));
+                    std::move(t+1,rack+racksize--,t);
                 }
         }
         cout << "rack: ";
@@ -533,7 +574,7 @@ void docommand(string ssss){
     }else if(com=="clear"){
         for(int i=0;i<bsize+2;i++)
             for(int j=0;j<bsize+2;j++)
-                if((i%bsize+1)*(j%bsize+1)==0) board[i][j]=1; else board[i][j]=0;
+                if((i%(bsize+1))*(j%(bsize+1))==0) board[i][j]=1; else board[i][j]=0;
     }
 }
 
@@ -546,6 +587,12 @@ int main(int argc, char* argv[]){
             case 'b': ss>>boardfile; break;
             case 't': ss>>tilefile;break;
             case 'd': ss>>dictfile;break;
+            case 'c': 
+                string dir;ss>>dir;
+                boardfile=dir+"/board.txt";
+                tilefile=dir+"/tiles.txt";
+                dictfile=dir+"/dict.txt";
+                break;
         }
     }
     init();

@@ -1,0 +1,25 @@
+pm forejudging 3 1 d
+pm max 2 2 d
+pm dye 3 3 d
+pm preconceived 4 4 d
+pm oh 3 5 d
+pm reestablished 3 6 d
+pm ane 3 7 d
+pm bladderlike 4 8 d
+pm ut 4 9
+pm ah 4 11 d
+pm zoosperms 4 12 d
+pm ow 4 13 d
+pm on 3 14 d
+pm requalifying 3 15 d
+rm 4 1
+rm 4 2
+rm 4 4
+rm 4 6
+rm 4 8
+rm 4 12
+rm 4 15
+
+ra +oxpebze
+lm
+pr b
