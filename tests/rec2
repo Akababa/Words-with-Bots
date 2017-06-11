@@ -20,6 +20,6 @@ rm 4 8
 rm 4 12
 rm 4 15
 
-ra +oxpebze
-lm
+ra +oxpebzertsaiolk
+lm -n=50
 pr b

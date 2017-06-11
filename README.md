@@ -1,6 +1,8 @@
 # Words-with-Bots
 Bot that plays Words with Friends
 
+With the ability to determine the highest scoring move on any board instantaneously!
+
 Usage:
 
 	./a [-b=<boardfile>] [-t=<tilefile>] [-d=<dictionaryfile>] [-c=<configfolder>]

@@ -16,7 +16,7 @@ using namespace boost;
 bool debug=false;
 bool start=true;
 
-unordered_set<string> words; //dictionary
+unordered_set<string> words; // hashtable dictionary
 char **board;
 int ***adj; //scores of words in perpendicular directions
 bool ****legal;
@@ -32,8 +32,8 @@ int racksize=0;
 int val[27];
 int num[26];
 int bsize=15;
-int depth,mod; //for pruning
-string boardfile="wwf/board.txt",tilefile="wwf/tiles.txt",dictfile="wwf/dict.txt";
+unsigned int depth,mod; //for pruning. mod=27^(depth-1)
+string boardfile="wwf/board.txt",tilefile="wwf/tiles.txt",dictfile="wwf/dict.txt",dictbin="wwf/dict.bin";
 
 int scoreword(int i,int j,bool across,bool nonadj,bool illegal);
 
@@ -135,7 +135,7 @@ void findmovesat(int i,int j,bool acr,int accadj=0,int accletr=0,int wmult=1,int
     if(board[i][j]){ // on a non-empty square
         if(board[i][j]==1) return;
         accword.push_back(board[i][j]);
-        findmovesat(i+!acr,j+acr,acr,accadj,accletr+points[i][j],wmult,blankpos,(rhash*27+board[i][j]-'A'+1)%mod); //passed letter doesn't count
+        findmovesat(i+!acr,j+acr,acr,accadj,accletr+points[i][j],wmult,blankpos,((rhash+board[i][j]-'A'+1)%mod)*27); //passed letter doesn't count
         accword.pop_back();
         return;
     }
@@ -146,7 +146,7 @@ void findmovesat(int i,int j,bool acr,int accadj=0,int accletr=0,int wmult=1,int
             rack[idc]=rack[--racksize];
             for(char c='A';c<='Z';c++){
                 if(!legal[acr][c-'A'][i][j]) continue; //adjacent word illegal, abort
-                if(chains[(rhash*27+c-'A'+1)%mod]==0) continue; //impossible word, abort
+                if(chains[rhash+c-'A'+1]==0) continue; //impossible word, abort
                 if(checkleaves){ 
                     if(board[i+!acr][j+acr]>1){ // takes care of trailing letters
                         int ii=i,jj=j;
@@ -181,7 +181,7 @@ void findmovesat(int i,int j,bool acr,int accadj=0,int accletr=0,int wmult=1,int
                         accletr,
                         wmult*wordmult[i][j], //word multiplier
                         accword.size(),
-                        (rhash*27+c-'A'+1)%mod);
+                        ((rhash+c-'A'+1)%mod)*27);
                     accword.pop_back();
                 }
             }
@@ -191,7 +191,7 @@ void findmovesat(int i,int j,bool acr,int accadj=0,int accletr=0,int wmult=1,int
         }
         char c=rack[idc];
         if(!legal[acr][c-'A'][i][j]) continue; //adjacent word illegal, abort //good chunk of time spent here
-        if(chains[(rhash*27+c-'A'+1)%mod]==0) continue; //impossible word, abort
+        if(chains[rhash+c-'A'+1]==0) continue; //impossible word, abort
         if(checkleaves){ 
             if(board[i+!acr][j+acr]>1){ // takes care of trailing letters
                 int ii=i,jj=j;
@@ -231,7 +231,7 @@ void findmovesat(int i,int j,bool acr,int accadj=0,int accletr=0,int wmult=1,int
                 accletr+ letrmult[i][j]*val[c-'A'], //letter accumulator
                 wmult*wordmult[i][j], //word multiplier
                 blankpos,
-                (rhash*27+c-'A'+1)%mod);
+                ((rhash+c-'A'+1)%mod)*27);
             accword.pop_back(); //new hotspot?
             rack[racksize++]=rack[idc];
             rack[idc]=c;
@@ -253,6 +253,32 @@ void findmoves(){
             }
         }
     }
+}
+
+void writeIndex(){
+    depth=5;mod=27*27*27*27;
+    fstream fs(dictfile);
+    string s;
+    chains=boost::dynamic_bitset<> (mod*27);
+    while(fs>>s){
+        for(char &c:s) c-=('A'-1); //1<=c<27
+        int rhash=0;
+        unsigned int mmod=mod*27;
+        for (int i = 0; i < s.size(); ++i){
+            rhash=(rhash*27+s[i])%mmod;
+            chains[rhash]=1;
+        }
+    }
+    fs.close();
+
+    std::vector<dynamic_bitset<>::block_type> v(chains.num_blocks());
+    to_block_range(chains, v.begin());
+    ofstream out(dictbin, ios::out | ios::binary);
+    out.write((char*)&depth,sizeof(int));
+    int x=v.size();
+    out.write((char*)&x,sizeof(int));
+    out.write((char*)&v[0], x * sizeof(dynamic_bitset<>::block_type));
+    out.close();
 }
 
 void init(){
@@ -347,16 +373,20 @@ void init(){
     }
     fs.close();
 
-    ifstream in("tests/dict.bin");
-    in.read((char*)&depth,sizeof(int));
-    mod=1;
-    for(int i=depth;i--;mod*=27);//mod=27^depth
-        //cout<<mod<<endl;
-    int y;
-    in.read((char*)&y,sizeof(int));
-    std::vector<dynamic_bitset<>::block_type> u(y);
-    in.read((char*)&u[0],y*sizeof(dynamic_bitset<>::block_type));
-    chains=dynamic_bitset<>(u.begin(),u.end());
+    ifstream in(dictbin);
+    if(in){
+        in.read((char*)&depth,sizeof(int));
+        mod=1;
+        for(int i=depth;--i;mod*=27);//mod=27^depth
+        int y;
+        in.read((char*)&y,sizeof(int));
+        std::vector<dynamic_bitset<>::block_type> u(y);
+        in.read((char*)&u[0],y*sizeof(dynamic_bitset<>::block_type));
+        chains=dynamic_bitset<>(u.begin(),u.end());
+    }else{
+        in.close();
+        writeIndex();
+    }
 
     for(int i=0;i<bt;i++){
         for(int j=0;j<bt;j++){
@@ -564,6 +594,7 @@ void docommand(string ssss){
     else if(com=="file"){
         string name;if(!(line>>name)) return;
         fstream fs{name};
+        if(!fs) cout <<name<<" not found"<<endl;
         while(fs){
             string cm;getline(fs,cm);
             docommand(cm);
@@ -582,7 +613,7 @@ int main(int argc, char* argv[]){
     for(int i=argc;i--;){
         char * s=argv[i];
         if(s[0]!='-') continue;
-        stringstream ss(s+3); //undefined behaviour here but whatever, it works for now
+        stringstream ss(s+3);
         switch(s[1]){
             case 'b': ss>>boardfile; break;
             case 't': ss>>tilefile;break;
@@ -592,6 +623,7 @@ int main(int argc, char* argv[]){
                 boardfile=dir+"/board.txt";
                 tilefile=dir+"/tiles.txt";
                 dictfile=dir+"/dict.txt";
+                dictbin=dir+"/dict.bin";
                 break;
         }
     }
