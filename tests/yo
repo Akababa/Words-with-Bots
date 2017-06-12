@@ -2,5 +2,13 @@ pm winter 6 5
 pm zits 4 8 d
 pm baggie 2 6 d
 pm yeld 6 11 d
-ra +qpestie
-lm
+pm baggie 2 6 d
+pm qis 8 4
+pm tepa 1 9 d
+pm pox 3 9
+pm deflea 3 1 a 0
+pm bakes 2 6
+
+ra +aohoais
+lm -n=50 -h
+pr b

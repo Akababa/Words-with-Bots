@@ -27,13 +27,13 @@ dynamic_bitset<> chains;
 
 vector<char> bag;
 vector<Move> moves;
-char* rack=new char[999];
-int racksize=0;
+char* rack=new char[999], *myrack=new char[999];
+int racksize=0,myracksize=0;
 bool fullrack;
 int val[27];
 int num[26];
 int bsize=15;
-unsigned int depth=5,mod; //for pruning. mod=27^(depth-1)
+unsigned int depth=5,mod; //for pruning trie. mod=27^(depth)
 string boardfile="wwf/board.txt",tilefile="wwf/tiles.txt",dictfile="wwf/dict.txt",dictbin="wwf/dict.bin";
 
 int scoreword(int i,int j,bool across,bool nonadj,bool illegal);
@@ -63,8 +63,6 @@ void calcadj(){
 bool isWord(const string& s){
     return words.count(s);
 }
-
-void docommand(string s);
 
 // Find the score of one word (across or down) at i,j or 0 if illegal
 // nonadj=true checks non-adjacent positions
@@ -165,6 +163,8 @@ void findmovesat(int i,int j,bool acr,int accadj=0,int accletr=0,int wmult=1,int
                                 - start,
                                 accword.size()));
                         }
+                    //if(accword=="BANGLE") cout<<accadj<<" "<<accletr<<"+"<<bonus<<" "<<wmult<<" "<<wordmult[i][j]<<
+                     //   " "<<c<<" "<<i<<","<<j<<endl;
                         accword.resize(siz);
                 }
                 if(racksize>1){
@@ -203,8 +203,8 @@ void findmovesat(int i,int j,bool acr,int accadj=0,int accletr=0,int wmult=1,int
                         + (fullrack&& racksize==1)*35
                         - start,
                         blankpos));
-                    //if(accword+extra=="NEWSLETTERS")cout<<accadj<<" "<<accletr<<" "<<wmult<<" "<<wordmult[i][j]<<
-                    //    " "<<c<<" "<<i<<","<<j<<"exra:"<<extra<<"+"<<bonus<<endl;
+                    //if(accword=="BANGLE") cout<<accadj<<" "<<accletr<<" "<<wmult<<" "<<wordmult[i][j]<<
+                     //   " "<<c<<" "<<i<<","<<j<<"+"<<bonus<<endl;
                 }
                 accword.resize(siz);
         }
@@ -405,7 +405,7 @@ void print(int** arr,string s,int width=1){
 }
 
 void printboard(){
-    cout<<"board:"<<endl;
+    //cout<<"board:"<<endl;
     for(int i=0;i<=bsize;i++){
         for(int j=0;j<=bsize;j++){
             switch(board[i][j]){
@@ -421,15 +421,18 @@ void printboard(){
 // overwrite=true overwrites already placed tiles
 void placemove(const Move &m,bool overwrite=false){
     start=false;
-    for(int i=0,j=0;i+j<m.length;i+=!m.across,j+=m.across){
+    for(int i=0,j=0; i+j<m.length; i+= !m.across,j+= m.across){
             if(!overwrite && board[m.row+i][m.col+j]) continue;
+
             board[m.row+i][m.col+j]=m.word[i+j];
+
             if(i+j!=m.blankpos)
                 points[m.row+i][m.col+j]=val[m.word[i+j]-'A'];
     }
 }
 
-// inefficient islegal just for cmd line purposes
+// inefficient islegal just for cmd line purpose
+// mutates score and word
 // modifies m if it's legal, otherwise returns false
 // Does not mutate the board (!) :D
 // doesn't work with blanks, nbd for now
@@ -453,7 +456,10 @@ bool islegal(Move &m){
         i+=!m.across;j+=m.across;
     }
     if(!isWord(acc)) return false;
-    
+
+    //now it is legal, can mutate
+    m.row=i1+!m.across; m.col = j1+m.across;
+    m.word=acc;
     int adjscore=0;
     int wordscore=0;
     int wmult=1;
@@ -472,22 +478,140 @@ bool islegal(Move &m){
     }while(++nn<acc.size());
     //cout <<adjscore<<wordscore<<wmult;
 
+
     m.score=adjscore+wmult*wordscore;
     return true;
 }
 
-void docommand(string ssss){
+// TODO: heuristics for better moves!
+void sortmoves(bool useheur=true){
+    if(!useheur) return sort(moves.rbegin(),moves.rend());
+    for(Move &m: moves){
+        m.heurscore=m.score*100;
+
+        if(m.blankpos==-1) m.heurscore += 1500; //15 pt bonus for not using the blank tile
+
+        // I want to discourage use of rare letters - should have x2 multiplier or better
+        for(int i=m.length;i--;){
+            m.heurscore -= 200 * val[m.word[i]-'A'];
+        }
+
+
+    }
+
+    sort(moves.rbegin(),moves.rend());
+}
+
+Move * inputmove(){
+    string sss; getline(cin,sss);
+    stringstream line{sss};
+    int i,j,p;string ss,acr;       
+    if(!(line>>ss)) return nullptr;
+    if(!(line>>i) || !(line>>j)) i=j=(bsize+1)/2;
+    if(!(line>>acr)) acr="a";
+    if(!(line>>p)) p=-1;
+
+    for(char &c:ss) c=toupper(c);
+    return new Move (ss,i,j,acr[0]!='d',0,p);
+}
+
+void docommand(string ssss, bool suppress=false);
+
+void gameloop(){
+
+    printboard();
+    int myscore=0,botscore=0;
+    while(true){
+        // player turn
+        for(int i=7-myracksize;i-- && !bag.empty();) {
+            myrack[myracksize++]=bag.back();
+            bag.pop_back();
+        }
+        cout << "Your rack: ";
+        for(int i=0;i<myracksize;i++) cout<<myrack[i];
+        cout<<" Your score: "<<myscore<<" Bot score: "<<botscore<<endl;
+        Move *m;
+        do{
+            cout<<"Input move: ";
+            m=inputmove();
+        }while(m ==nullptr || !islegal(*m));
+
+        myscore+=m->score;
+        int i=m->row,j=m->col;
+        for(char c: m->word) {
+            if(board[i][j]==0){
+                char * t=find(myrack,myrack+myracksize,toupper(c));
+                cout <<t-myrack<<endl;
+                if(t==myrack+myracksize)
+                    t=find(myrack,myrack+myracksize,'A'+26); // find the blank
+                
+                if(t!=myrack+myracksize)
+                    std::move(t+1,myrack+myracksize--,t);
+            }
+            i+= !m->across;j+= m->across;
+        }
+        placemove(*m);
+        cout<<endl;
+        printboard();
+        cout <<"You played "<< *m<<endl;
+        cout<<endl;
+
+        // bot turn!
+
+        for(int i=7-racksize;i-- && !bag.empty();) {
+            rack[racksize++]=bag.back();
+            bag.pop_back();
+        }
+        findmoves();
+        sortmoves();
+        if(moves.empty()) {
+            cout<<"Bot passes"<<endl;
+            continue;
+        }
+        Move &bm=moves.front();
+
+        botscore+=bm.score;
+        i=bm.row; j=bm.col;
+
+        for(char c: bm.word) {
+            if(board[i][j]==0){
+                char * t=find(rack,rack+racksize,toupper(c));
+                //cout <<t-myrack<<endl;
+                if(t==rack+racksize)
+                    t=find(rack,rack+racksize,'A'+26); // find the blank
+                
+                if(t!=rack+racksize)
+                    std::move(t+1,rack+racksize--,t);
+            }
+            i+= !bm.across; j+= bm.across;
+        }
+        placemove(bm);
+        cout<<endl;
+        printboard();
+        cout <<"Bot played "<<bm<<endl;
+        cout<<endl;
+    }
+}
+
+void docommand(string ssss, bool suppress){
     stringstream line(ssss);
     string com;line>>com;
-    if(com=="pb"){
+    if(com=="game"){
+        gameloop();
+    }else if(com=="pb"){
         findmoves();
-        if(moves.empty()) {cout<<"No moves"<<endl; return;}
-        sort(moves.rbegin(),moves.rend());
-        Move mm=moves.front();
+        if(moves.empty()) {
+            if(!suppress) cout<<"No moves"<<endl;
+            return;
+        }
+        sortmoves();
+        Move & mm=moves.front();
         placemove(mm);
-        printboard();
-        cout <<mm<<endl;
-        docommand("ra -"+string(mm.word));
+        if(!suppress){
+            printboard();
+            cout <<mm<<endl;
+        }
+        //docommand("ra -"+mm.word,suppress);
     }else if(com=="pm"){
         bool override=false;
         int i,j,p;string ss,acr;
@@ -499,14 +623,18 @@ void docommand(string ssss){
         if(!(line>>i) || !(line>>j)) i=j=(bsize+1)/2;
         if(!(line>>acr)) acr="a";
         if(!(line>>p)) p=-1;
+
         for(char &c:ss) c=toupper(c);
-        placemove(Move(ss,i,j,acr[0]!='d',0,0,p),override);
+        placemove(Move(ss,i,j,acr[0]!='d',0,p),override);
     }else if(com=="il"){
-        int i,j;string ss,acr;       
-        if(!(line>>ss>>i>>j)) return;
-        if(line) line>>acr; else acr='d';
+        int i,j,p;string ss,acr;       
+        if(!(line>>ss)) return;
+        if(!(line>>i) || !(line>>j)) i=j=(bsize+1)/2;
+        if(!(line>>acr)) acr="a";
+        if(!(line>>p)) p=-1;
+
         for(char &c:ss) c=toupper(c);
-        Move m(ss,i,j,acr[0]!='d');
+        Move m(ss,i,j,acr[0]!='d',0,p);
         bool leg=islegal(m);
         cout<<m<<" legal: "<<leg<<endl;
     }else if(com=="rm"){
@@ -517,7 +645,10 @@ void docommand(string ssss){
         string ss;line>>ss;
         for(char cc:ss){
             switch(cc){
-                case 'b': printboard();break;
+                case 'b':
+                    cout<<"board:"<<endl;
+                    printboard();
+                    break;
                 case 'a': 
                     print(adj[0],"adj[0]:",3);
                     print(adj[1],"adj[1]:",3);
@@ -552,18 +683,22 @@ void docommand(string ssss){
             if(ss[0]=='-')
                 for(int i=1;i<ss.size();i++) {
                     char*  t=find(rack,rack+racksize,toupper(ss[i]));
-                    std::move(t+1,rack+racksize--,t);
+                    if(t!=rack+racksize)
+                        std::move(t+1,rack+racksize--,t);
                 }
         }
+        if(suppress) return;
         cout << "rack: ";
         for(int i=0;i<racksize;i++) cout<<rack[i];
         cout<<endl;
     }else if(com=="lm"){
         string st;
         int n=999999,s=0;
+        bool useheuristics=false;
         while(line>>st) {
             if(st[0]!='-') continue;
-            stringstream ss{st.substr(3)};
+            stringstream ss;
+            if(st.length()>=3) ss<<st.substr(3);
             switch(st[1]){
                 case 'n':
                 if(!(ss>>n)) n=999999;
@@ -571,13 +706,14 @@ void docommand(string ssss){
                 case 's':
                 if(!(ss>>s)) s=0;
                 break;
+                case 'h': useheuristics=true;break;
             }
         }
         findmoves();
-        sort(moves.rbegin(),moves.rend());
+        sortmoves(useheuristics);
         for(Move &m:moves){
             if(m.score<s || n--==0) break;
-            cout <<m<<endl;
+            cout <<setw(11)<<setfill(' ')<<m<<endl;
         }
     }else if(com=="db") line>>debug;
     else if(com=="file"){
@@ -586,7 +722,7 @@ void docommand(string ssss){
         if(!fs) cout <<name<<" not found"<<endl;
         while(fs){
             string cm;getline(fs,cm);
-            docommand(cm);
+            docommand(cm,suppress);
         }
     }else if(com=="word"){
         string w;if(!(line>>w)) return;
@@ -633,6 +769,6 @@ int main(int argc, char* argv[]){
     calcadj();
     while(cin){
         string s;getline(cin,s);
-        docommand(s);
+        docommand(s,false);
     }
 }

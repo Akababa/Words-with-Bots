@@ -10,7 +10,8 @@ Usage:
 	-r: Forces a rebuild of the trie with given depth (max 5 for now)
 
 Commands:
-
+	game
+		Take turns playing with the bot.
 	pm [-f] <word> [<row>] [<column>] [d] [<blankposition>]
 		Plays a move. d indicates down and row,col are 1-indexed but blankposition is 0-indexed. Default is horizontal in the center of the board.
 		-f: forces the move even if illegal
