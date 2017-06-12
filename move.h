@@ -11,8 +11,8 @@ public:
     bool across;
     int score;
     int blankpos;
-    int heurscore; //heuristic score
-
+    int heurscore=0; //heuristic score
+    Move() = default;
     /*
     * Assume word passed in is valid
     */
@@ -22,13 +22,13 @@ public:
     	this->row=r;
     	this->col=c;
         this->across=across;
-    	this->heurscore = this->score=score;
+    	this->score=score;
         this->blankpos=blankpos;
     }
 
     friend std::ostream &operator<<(std::ostream &out, Move &move);
 
-    // comparison based on heuristic score
+    // comparison based on nominal score
     bool operator< (const Move& other) const {
         return (heurscore < other.heurscore) || (heurscore==other.heurscore && std::string(word)<std::string(other.word));
     }
