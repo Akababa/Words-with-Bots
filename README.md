@@ -10,6 +10,7 @@ Usage:
 	-r: Forces a rebuild of the trie with given depth (max 5 for now)
 
 Commands:
+
 	game
 		Take turns playing with the bot.
 	pm [-f] <word> [<row>] [<column>] [d] [<blankposition>]
