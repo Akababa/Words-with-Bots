@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# shell script for running the bot against itself
+
+
+if [ $1 ]; then
+	echo 0 0 > record.txt
+fi
+
+for (( i=0; i<8; i++ )); do
+   ./a -p 1000 1 &
+done

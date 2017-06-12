@@ -16,7 +16,7 @@ public:
     /*
     * Assume word passed in is valid
     */
-     Move(std::string word,int r,int c,bool across=true, int score=0,int blankpos=-1){
+     Move(std::string word,int r,int c,bool across=true, int score=0,int blankpos=-1,int h=0){
         this->word=word;
         this->length=word.size();
     	this->row=r;
@@ -24,6 +24,7 @@ public:
         this->across=across;
     	this->score=score;
         this->blankpos=blankpos;
+        this->heurscore=h;
     }
 
     friend std::ostream &operator<<(std::ostream &out, Move &move);
