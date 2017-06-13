@@ -2,6 +2,7 @@
 
 ./a "$1" < tests/sh1 | cmp tests/sh1.out
 ./a "$1" < tests/sh2 | cmp tests/sh2.out
+./a "$1" < tests/sh3 | cmp tests/sh3.out
 ./a "$1" < tests/t2 | cmp tests/t2.out
 ./a -c=wwf15 "$1" < tests/recbig | cmp tests/recbig.out
 ./a -c=wwf15 "$1" < tests/rec2 | cmp tests/rec2.out

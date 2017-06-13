@@ -187,7 +187,6 @@ void putmove(string accword,int i,int j,bool acr,int blankpos){
         wmult*= wordmult[i][j];
         i+=!acr; j+=acr;
     }while(++nn<accword.size());
-    if(start) adjscore=0;
     if(blankpos!=-1) accword[blankpos]=temp;
     int score= adjscore + wmult * wordscore;
     if(racksize==0 && fullrack) score+=35; //bingo
