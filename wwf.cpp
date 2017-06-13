@@ -999,7 +999,7 @@ void docommand(string ssss, bool suppress){
         for(char c:s){
             rhash=((rhash+toupper(c)-'A'+1)*27)%mod;
         }
-        cout<<rhash<<":"<<chains[rhash]<<endl;
+        cout<<rhash/27<<":"<<chains[rhash/27]<<endl;
     }
 }
 

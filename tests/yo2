@@ -10,8 +10,8 @@ pm oxo 1 10 d
 pm bet 3 11 d
 pm jinked 3 3 d
 pm when 9 8
+pm pic 4 2
 
-
-ra +cpr
+ra +r
 lm -h -n=40
 pr b
