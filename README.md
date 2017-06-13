@@ -7,6 +7,7 @@ Usage:
 
 	./a [-b=<boardfile>] [-t=<tilefile>] [-d=<dictionaryfile>] [-c=<configfolder>] [-r=<depth>]
 
+	-c: The folder with config files (board, tile, dictionary). Run with -c=wwf15 to play on the 15x15 board. (default 11x11)
 	-r: Forces a rebuild of the trie with given depth (max 5 for now)
 
 Commands:
