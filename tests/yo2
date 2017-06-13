@@ -1,0 +1,17 @@
+pm volti 
+pm yellow 4 8 d 5
+pm zarfs 10 4
+pm saga 11 1
+pm qaids 7 1 d
+pm aids 8 1
+pm wame 1 9 d
+pm oe 8 8
+pm oxo 1 10 d
+pm bet 3 11 d
+pm jinked 3 3 d
+pm when 9 8
+
+
+ra +cpr
+lm -h -n=40
+pr b

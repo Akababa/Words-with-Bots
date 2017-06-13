@@ -1,0 +1,13 @@
+pm found
+pm vans 4 9 d
+pm lazies 1 11 d
+pm crawl 1 7 a 2
+pm jibe 7 3
+pm hikes 6 4 d
+pm pesos 10 2
+pm qat 11 1
+pm meta 9 3
+
+ra +oniel[e
+lm -n=40 -h
+pr b

@@ -1,0 +1,54 @@
+rack: ONIEL[E
+        LEA @ 2, 9 acr +20 (hscore:3300)
+        LEA @ 2, 9 acr +20 (hscore:3300)
+     PINOLE @11, 6 acr +29 (hscore:3004) (blank:0)
+     PINOLE @11, 6 acr +29 (hscore:3004) (blank:0)
+         EL @ 8, 7 dwn +16 (hscore:2900)
+         EL @ 8, 7 dwn +16 (hscore:2900)
+      DONEE @ 6,10 dwn +16 (hscore:2796)
+      DONEE @ 6,10 dwn +16 (hscore:2796)
+      ENVOI @ 4, 7 acr +14 (hscore:2778)
+      ENVOI @ 4, 7 acr +14 (hscore:2778)
+      DIENE @ 6,10 dwn +16 (hscore:2744)
+      DIENE @ 6,10 dwn +16 (hscore:2744)
+     SENILE @11, 6 acr +29 (hscore:2718) (blank:0)
+     SENILE @11, 6 acr +29 (hscore:2718) (blank:0)
+     PENILE @11, 6 acr +29 (hscore:2718) (blank:0)
+     PENILE @11, 6 acr +29 (hscore:2718) (blank:0)
+       CONI @ 1, 7 dwn +10 (hscore:2482)
+       COIL @ 1, 7 dwn +9 (hscore:2460)
+       COLE @ 1, 7 dwn +10 (hscore:2456)
+       COLE @ 1, 7 dwn +10 (hscore:2456)
+      OLIOS @ 3, 7 dwn +22 (hscore:2408) (blank:4)
+       COIN @ 1, 7 dwn +9 (hscore:2382)
+       CION @ 1, 7 dwn +9 (hscore:2382)
+       CONE @ 1, 7 dwn +10 (hscore:2378)
+       CONE @ 1, 7 dwn +10 (hscore:2378)
+       DIOL @ 6,10 dwn +8 (hscore:2360)
+        COL @ 1, 7 dwn +9 (hscore:2356)
+      METAL @ 9, 3 acr +11 (hscore:2348)
+       CINE @ 1, 7 dwn +10 (hscore:2326)
+       CINE @ 1, 7 dwn +10 (hscore:2326)
+      OLEOS @ 3, 7 dwn +22 (hscore:2304) (blank:4)
+      OLEOS @ 3, 7 dwn +22 (hscore:2304) (blank:4)
+       CEIL @ 1, 7 dwn +9 (hscore:2304)
+       CEIL @ 1, 7 dwn +9 (hscore:2304)
+        LEV @ 4, 7 acr +10 (hscore:2300)
+        LEV @ 4, 7 acr +10 (hscore:2300)
+       CLON @ 1, 7 dwn +10 (hscore:2300)
+       DINO @ 6,10 dwn +8 (hscore:2282)
+        CON @ 1, 7 dwn +9 (hscore:2278)
+       DOLE @ 6,10 dwn +8 (hscore:2256)
+board:
+012345678901
+1*.!...CRAWL
+2.?...?...?A
+3!.*.'.'.*.Z
+4...*...*V.I
+5..'.....A.E
+6.?.H.FOUNDS
+7..JIBE..S..
+8...K...*...
+9!.META'.*.!
+0.PESOS...?.
+1QAT.....!.*

@@ -15,7 +15,9 @@ pm zax 10 9
 pm e 11 9
 pm teary 1 7
 pm yet 1 11 d
+pm viga 4 4 d
+pm idol 8 6
 
-ra +oa
+ra +o
 lm -n=25
 pr b

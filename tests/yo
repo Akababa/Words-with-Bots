@@ -8,7 +8,16 @@ pm tepa 1 9 d
 pm pox 3 9
 pm deflea 3 1 a 0
 pm bakes 2 6
+pm his 9 3
+pm dev 2 2 d
+pm oaf 1 3 d
+pm hun 9 3 d
+pm mo 10 2 d
+pm con 11 1
+pm ae 5 2
+pm er 5 3 d
 
-ra +aohoais
+
+ra +o
 lm -n=50 -h
 pr b

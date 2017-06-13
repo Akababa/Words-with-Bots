@@ -39,7 +39,7 @@ std::ostream &operator<<(std::ostream &out, Move &m){
     using namespace std;
     out<<m.word<<" @"<<
         setw(2)<<setfill(' ')<<m.row<<","<<setw(2)<<setfill(' ')<<m.col<<(m.across?" acr":" dwn");
-    if(m.score) out<<" for "<<m.score;
+    if(m.score) out<<" +"<<m.score;
     if(m.heurscore) out<<" (hscore:"<<m.heurscore<<")";
     if(m.blankpos!=-1) out<<" (blank:"<<m.blankpos<<")";
     return out;

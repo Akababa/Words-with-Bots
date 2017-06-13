@@ -27,6 +27,7 @@ int **points; //point values of placed tiles
 dynamic_bitset<> chains;
 
 unsigned seed=0;
+minstd_rand0 rng; // RNG
 vector<char> bag;
 vector<Move> moves;
 char * rack=new char[999], *myrack=new char[999];
@@ -34,7 +35,7 @@ int racksize=0,myracksize=0;
 bool fullrack;
 int val[27];
 int num[26];
-int H1[27];
+int H1[27],H2[27][2]; // Rack leave heuristics
 int bsize=15;
 unsigned int depth=5,mod; //for pruning trie. mod=27^(depth)
 string boardfile="wwf/board.txt",tilefile="wwf/tiles.txt",dictfile="wwf/dict.txt",dictbin="wwf/dict.bin";
@@ -76,12 +77,12 @@ bool isWord(const string& s){
     return words.count(s);
 }
 
-// Find the score of one word (across or down) at i,j or 0 if illegal
+// Find the score of one linear word (across or down) at i,j or 0 if illegal
 // nonadj = true finds score of non-anchored words
 // illegal = true finds score of illegal words
 string retword; //last checked word for convenience
 int scoreword(int i,int j,bool across,bool nonadj=false,bool illegal=false){
-    int score=0;
+    int score=1; //in case word is full of blanks
     if(across){
         if(nonadj || adj[0][i][j]){ //check horiz
             int j1=j; while(board[i][--j1]>1);
@@ -142,6 +143,28 @@ int rackH1(){
     return sum;
 }
 
+// This heuristic deducts for duplicate letters
+int rackH2(){
+    int sum=0;
+    int freq[27];
+    for(int i=27;i--;) freq[i]=0;
+    for(int i=racksize;i--;){
+        freq[rack[i]-'A']++;
+    }
+    for(char c='A';c<='A'+26;c++){
+        if(freq[c-'A'])
+            sum += freq[c-'A']* (H2[c-'A'][0]+ (freq[c-'A']-1) * H2[c-'A'][1] / 2);
+    }
+    if(std::count(rack,rack+racksize,'U') && std::count(rack,rack+racksize,'Q')) sum += 1500;
+
+    // vowels: A,E,I,O,U
+    int numvowels=freq[0] + freq['E'-'A'] + freq['I'-'A'] + freq['O'-'A'] + freq['U'-'A'];
+    // consonants - vowels balance
+    int bal=racksize - numvowels*2 - 1; // ideally 3 vowels and 4 consonants
+    sum -= bal * bal * 50; // max -2450 for 6 vowel leave
+    return sum;
+}
+
 void putmove(string accword,int i,int j,bool acr,int blankpos){
     int ii=i,jj=j;
     int adjscore=0;
@@ -155,21 +178,20 @@ void putmove(string accword,int i,int j,bool acr,int blankpos){
     do{
         if(board[i][j]) {
             wordscore+=points[i][j];
-        i+=!acr;j+=acr;
+            i+=!acr; j+=acr;
             continue;
         }
         adjscore+= wordmult[i][j] * 
-        (adj[acr][i][j]? adj[acr][i][j] + letrmult[i][j] * val[accword[nn]-'A']:0);
+        (adj[acr][i][j]? adj[acr][i][j]-1 + letrmult[i][j] * val[accword[nn]-'A']:0);
         wordscore+= letrmult[i][j] * val[accword[nn]-'A']; 
         wmult*= wordmult[i][j];
-        i+=!acr;j+=acr;
+        i+=!acr; j+=acr;
     }while(++nn<accword.size());
     if(start) adjscore=0;
     if(blankpos!=-1) accword[blankpos]=temp;
-    int score=adjscore+wmult*wordscore;
-    if(racksize==0 && fullrack) score+=35;
-    //cout <<adjscore<<wordscore<<wmult;
-    moves.push_back(Move(accword,ii,jj,acr,score,blankpos));
+    int score= adjscore + wmult * wordscore;
+    if(racksize==0 && fullrack) score+=35; //bingo
+    moves.push_back(Move(accword,ii,jj,acr,score,blankpos,rackH2()));
 }
 
 // accword is the cumulative word fragment
@@ -323,7 +345,8 @@ void init(bool rebuild=false){
         for(int i=number;i--;) bag.push_back(ch);
     } 
     unsigned seed = chrono::system_clock::now().time_since_epoch().count();
-    shuffle (bag.begin(), bag.end(), default_random_engine(seed++));
+    rng = default_random_engine(seed);
+    shuffle (bag.begin(), bag.end(), rng);
     //for(int i:val) cout <<i <<" "<<endl;
     fs.close();
 
@@ -407,6 +430,15 @@ void init(bool rebuild=false){
         fs>>c>>hscore;
         H1[c-'A']=hscore;
     }
+    fs.close();
+
+    fs.open("wwf/H2.txt");
+    while(fs){
+        char c;int s1,s2;
+        fs>>c>>s1>>s2;
+        H2[c-'A'][0]=s1;
+        H2[c-'A'][1]=s2;
+    }
 
     clear();
 }
@@ -421,7 +453,7 @@ void print(bool** arr,string s){
     }
 }
 
-void print(int** arr,string s,int width=1){
+ void print(int** arr,string s,int width=1){
     cout<<s<<endl;
     for(int i=1;i<=bsize;i++){
         for(int j=1;j<=bsize;j++){
@@ -471,6 +503,7 @@ void placemove(const Move &m,bool overwrite=false){
 // Does not mutate the board (!) :D
 // doesn't work with blanks, nbd for now
 bool islegal(Move &m){
+    if(m.word.empty()) return false;
     calcadj();
     calclegalall();
     int i=m.row,j=m.col;
@@ -506,7 +539,7 @@ bool islegal(Move &m){
             continue;
         }
         adjscore+= wordmult[i1][j1] * 
-        (adj[m.across][i1][j1]? adj[m.across][i1][j1] + letrmult[i1][j1] * val[acc[nn]-'A']:0);
+        (adj[m.across][i1][j1]? adj[m.across][i1][j1]-1 + letrmult[i1][j1] * val[acc[nn]-'A']:0);
         wordscore+= letrmult[i1][j1] * val[acc[nn]-'A']; 
         wmult*= wordmult[i1][j1];
     }while(++nn<acc.size());
@@ -532,50 +565,36 @@ void sortmoves(bool useheur=true){
             m.heurscore=m.score;
             continue;
         }
-        //int hscore=m.score*100;
 
-        //if(m.blankpos==-1)
-            //hscore += 750; // bonus for not using the blank tile
-
-        // I want to discourage use of rare letters - should have 2x multiplier or better
-        for(int i=m.length;i--;){
-            switch(m.word[i]){
-                //case 'X': case 'Z': case 'J': case 'Q': hscore+=200; break;//I wanna keep these tiles
-                //case 'S': case 'E': hscore-=200; break;
-                //case 'H': hscore+=100; break;
-                //case 'U': hscore+=100; break;
-                //case 'S': hscore -=300;
-                //case 'L': case 'U': case 'V': hscore -= 100;break;
-            }
-        }
-        m.heurscore=m.heurscore/2+100*m.score;
+        // weight rack leave by number of tiles left in bag
+        int si=bag.size();
+        m.heurscore = m.heurscore*si/100 + 100 * m.score;
     }
 
     sort(moves.rbegin(),moves.rend());
 }
-// control group (greedy)
+
+// control group 
 void othersortmoves(){
     for(Move &m: moves){
-        m.heurscore=m.score*100;
-
-        //if(m.blankpos==-1)
-            //m.heurscore += 750; // bonus for not using the blank tile
-
-        // I want to discourage use of rare letters - should have x1.75 multiplier or better
-        //for(int i=m.length;i--;){
-            //m.heurscore -= 200 * val[m.word[i]-'A'];
-        //}
+        m.heurscore= m.score*100;
     }
 
     sort(moves.rbegin(),moves.rend());
 }
-// returns: 0 for invalid input, 1 for succesful move parse, -1 for pass
+
+string swp;
+// returns: 0 for invalid input, 1 for succesful move parse, 2 for swap, -1 for pass
 int inputmove(Move &m){
     string sss; getline(cin,sss);
     stringstream line{sss};
     int i,j,p;string ss,acr;       
     if(!(line>>ss)) return 0;
     if(ss==".") return -1;
+    if(ss=="!"){
+        line>>swp;
+        return 2;
+    }
     if(!(line>>i) || !(line>>j)) i=j=(bsize+1)/2;
     if(!(line>>acr)) acr="a";
     if(!(line>>p)) p=-1;
@@ -604,17 +623,25 @@ void gameloop(){
         cout<<" Your score: "<<myscore<<" Bot score: "<<botscore<<endl;
 
         Move m; bool passed=false;
-        while(true){
-            cout<<"Input move (. to pass):";
-            int status=inputmove(m);
-            if(status==1) break;
-            else if(status==-1) {
+        int status=0;
+        while(status==0){
+            cout<<"Input move (. to pass, ! to swap): ";
+            status=inputmove(m);
+            if(status==2){
+                for(char & c:swp){
+                    char * pos = find(myrack, myrack+myracksize, toupper(c));
+                    if(pos != rack + racksize){
+                        std::swap (myrack[pos-myrack], bag[rng() % bag.size()]);
+                    }
+                }
+                passed=true;
+                break;
+            } else if(status==-1) {
                 cout<<"You passed"<<endl;
                 passed=true;
                 if(++stalemate>=3){
                     gameover=true;
                 }
-                break;
             }
         }
         if(gameover) break;
@@ -895,22 +922,34 @@ void docommand(string ssss, bool suppress){
         calclegal(ss[0]);
         print(legal[0][ss[0]-'A'],"legal[0]["+ss+"]");
         print(legal[1][ss[0]-'A'],"legal[1]["+ss+"]");
+    }else if (com=="swap"){
+        string ss;
+        if(!(line>>ss)) return;
+        for(char & c:ss){
+            char * pos = find(rack, rack+racksize, toupper(c));
+            if(pos != rack + racksize){
+                std::swap (rack[pos-rack], bag[rng() % bag.size()]);
+            }
+        }
     }else if(com=="ra"){
         while(line){
             string ss;line>>ss;
             if(ss[0]=='+'){
-                if(isdigit(ss[1])) for(int i=ss[1]-'0';i-- && !bag.empty();) {
-                    rack[racksize++]=bag.back();
-                    bag.pop_back();
-                }else
+                if(isdigit(ss[1]))
+                    for(int i=ss[1]-'0';i-- && !bag.empty();) {
+                        rack[racksize++]=bag.back();
+                        bag.pop_back();
+                    }
+                else
                     for(int i=1;i<ss.size();i++) rack[racksize++]=toupper(ss[i]);
             }
-            if(ss[0]=='-')
+            if(ss[0]=='-'){
                 for(int i=1;i<ss.size();i++) {
-                    char*  t=find(rack,rack+racksize,toupper(ss[i]));
-                    if(t!=rack+racksize)
-                        std::move(t+1,rack+racksize--,t);
+                    char * pos=find(rack,rack+racksize,toupper(ss[i]));
+                    if(pos!=rack+racksize)
+                        std::move(pos+1,rack+racksize--,pos);
                 }
+            }
         }
         if(suppress) return;
         cout << "rack: ";
@@ -951,6 +990,7 @@ void docommand(string ssss, bool suppress){
         }
     }else if(com=="word"){
         string w;if(!(line>>w)) return;
+        for(char &c:w) c=toupper(c);
         cout << isWord(w)<<endl;
     }else if(com=="clear"){
         clear();

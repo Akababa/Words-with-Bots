@@ -6,7 +6,11 @@ pm pub 9 1 d
 pm video 7 9 d
 pm rajes 7 11 d
 pm um 10 1
+pm fila 8 8
+pm colts 6 2
+pm yutz 8 4 d
+pm exon 4 3 d
 
-ra +fhglayd
+ra +[hgaed
 lm -n=40 -h
 pr b
