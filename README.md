@@ -18,19 +18,19 @@ Commands:
 	pm [-f] <word> [<row>] [<column>] [d] [<blankposition>]
 		Plays a move. d indicates down and row,col are 1-indexed but blankposition is 0-indexed. Default is horizontal in the center of the board.
 		-f: forces the move even if illegal
-	pb [-k]
-		Plays the best move with the given rack (currently the highest-scoring move)
-		-k: keep the tiles on the rack
+	pb
+		Plays the best move with the given rack, by score and rack leave heuristics
 	il <word> [<row>] [<column>] [d]
 		Displays info about a move, including score and legality. Uses same syntax as pm.
 	rm <row> <column>
 		Removes the letter at the position
 	ra [+<letters>] [-<letters>]
-		Adds/removes the specified letters on the rack, or a random amount from/to the bag if a number is passed in
-	lm [-n=<number>] [-s=<minscore>]
+		Adds/removes the specified letters on the rack, or a random amount from the bag if a number is passed in
+	lm [-n=<number>] [-s=<minscore>] [-h]
 		List legal moves, sorted decreasing by score
 		-n: only top moves
 		-s: moves with minimum score
+		-h: calculate and list by heuristic score
 	pr <flags>
 		if <flags> contains:
 		b: print board
