@@ -4,7 +4,7 @@
 #include <unordered_set>
 #include <string>
 #include <vector>
-#include <boost/dynamic_bitset.hpp>
+#include <bitset>
 #include <sstream>
 #include <algorithm>
 #include <random>       // std::default_random_engine
@@ -12,7 +12,6 @@
 #include <cmath>
 #include "move.h"
 using namespace std;
-using namespace boost;
 
 bool debug=false;
 bool start=true;
@@ -24,7 +23,8 @@ bool ****legal;
 int **wordmult;
 int **letrmult;
 int **points; //point values of placed tiles
-dynamic_bitset<> chains;
+const int MOD = 27*27*27*27*27;
+bitset<MOD> chains;
 
 unsigned seed=0;
 minstd_rand0 rng; // RNG
@@ -37,7 +37,6 @@ int val[27];
 int num[26];
 int H1[27],H2[27][2]; // Rack leave heuristics
 int bsize=15;
-unsigned int depth=5,mod; //for pruning trie. mod=27^(depth)
 string boardfile="wwf/board.txt",tilefile="wwf/tiles.txt",dictfile="wwf/dict.txt",dictbin="wwf/dict.bin";
 
 int scoreword(int i,int j,bool across,bool nonadj,bool illegal);
@@ -203,7 +202,7 @@ void findmovesat(int i,int j,bool acr,bool hasadj=false,int blankpos=-1,int rhas
     if(board[i][j]){ // on a non-empty square
         if(board[i][j]==1) return;
         accword.push_back(board[i][j]);
-        findmovesat(i+!acr,j+acr,acr,true,blankpos,((rhash+board[i][j]-'A'+1)*27)%mod); //passed letter doesn't count
+        findmovesat(i+!acr,j+acr,acr,true,blankpos,((rhash+board[i][j]-'A'+1)*27)%MOD); //passed letter doesn't count
         accword.pop_back();
         return;
     }
@@ -234,7 +233,7 @@ void findmovesat(int i,int j,bool acr,bool hasadj=false,int blankpos=-1,int rhas
                     findmovesat(i+!acr, j+acr, acr, 
                         checkleaves,
                         accword.size()-1,
-                        ((rhash+c-'A'+1)*27)%mod);
+                        ((rhash+c-'A'+1)*27)%MOD);
                     accword.pop_back();
                 }
             }
@@ -265,7 +264,7 @@ void findmovesat(int i,int j,bool acr,bool hasadj=false,int blankpos=-1,int rhas
             findmovesat(i+!acr, j+acr, acr, 
                 checkleaves,
                 blankpos,
-                ((rhash+c-'A'+1)*27)%mod);
+                ((rhash+c-'A'+1)*27)%MOD);
             accword.pop_back(); //new hotspot?
         }
             rack[racksize++]=rack[idc];
@@ -292,28 +291,21 @@ void findmoves(){
 }
 
 void writeIndex(){
-    mod=1; // for some reason 6 doesn't work TODO: find out why
-    for(int i=depth;i--;mod*=27);
+    // for some reason 6 doesn't work TODO: find out why
     fstream fs(dictfile);
     string s;
-    chains=boost::dynamic_bitset<> (mod*27);
     while(fs>>s){
         for(char &c:s) c-=('A'-1); //1<=c<27
         int rhash=0;
         for (int i = 0; i < s.size(); ++i){
-            rhash=(rhash*27+s[i])%mod;
+            rhash=(rhash*27+s[i])%MOD;
             chains[rhash]=1;
         }
     }
     fs.close();
 
-    std::vector<dynamic_bitset<>::block_type> v(chains.num_blocks());
-    to_block_range(chains, v.begin());
     ofstream out(dictbin, ios::out | ios::binary);
-    out.write((char*)&depth,sizeof(int));
-    int x=v.size();
-    out.write((char*)&x,sizeof(int));
-    out.write((char*)&v[0], x * sizeof(dynamic_bitset<>::block_type));
+    out.write((char*) &chains, sizeof(bitset<MOD>));
     out.close();
 }
 
@@ -410,14 +402,7 @@ void init(bool rebuild=false){
 
     ifstream in(dictbin);
     if(!rebuild && in){
-        in.read((char*)&depth,sizeof(int));
-        mod=1;
-        for(int i=depth;i--;mod*=27);//mod=27^depth
-        int y;
-        in.read((char*)&y,sizeof(int));
-        std::vector<dynamic_bitset<>::block_type> u(y);
-        in.read((char*)&u[0],y*sizeof(dynamic_bitset<>::block_type));
-        chains=dynamic_bitset<>(u.begin(),u.end());
+        in.read((char*) &chains, sizeof(bitset<MOD>));
     }else{
         in.close();
         writeIndex();
@@ -997,7 +982,7 @@ void docommand(string ssss, bool suppress){
         string s;line>>s;
         int rhash=0;
         for(char c:s){
-            rhash=((rhash+toupper(c)-'A'+1)*27)%mod;
+            rhash=((rhash+toupper(c)-'A'+1)*27)%MOD;
         }
         cout<<rhash/27<<":"<<chains[rhash/27]<<endl;
     }
@@ -1018,7 +1003,6 @@ int main(int argc, char* argv[]){
             case 't': ss>>tilefile;break;
             case 'd': ss>>dictfile;break;
             case 'r': 
-                if(!(ss>>depth)) depth = 5;
                 rebuild=true;
                 break;
             case 'p':
