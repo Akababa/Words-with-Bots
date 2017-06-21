@@ -1,11 +1,11 @@
 CXX = g++
-CXXFLAGS = -std=c++14 -g -pg -Wall -Wno-sign-compare -MMD
+CXXFLAGS = -std=c++14 -Wall -Wno-sign-compare -MMD
 OBJECTS = wwf.o
 DEPENDS = ${OBJECTS:.o=.d}
 EXEC = a 
 
 ${EXEC}: ${OBJECTS}
-	${CXX} ${OBJECTS} -pg -o ${EXEC}
+	${CXX} ${OBJECTS} -o ${EXEC}
 
 -include ${DEPENDS} # copies files x.d, y.d, z.d (if exists)
     
