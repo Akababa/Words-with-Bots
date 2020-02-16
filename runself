@@ -8,5 +8,5 @@ if [ $1 ]; then
 fi
 
 for (( i=0; i<8; i++ )); do
-   ./a -p 1000 1 &
+   ./wwf -p 1000 1 &
 done

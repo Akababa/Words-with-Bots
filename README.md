@@ -1,19 +1,29 @@
 # Words-with-Bots
 Bot that plays Words with Friends
 
-With the ability to determine the highest scoring move on any board instantaneously!
+Finds the highest scoring move on any board instantaneously! Crush your friends and ruin the spirit of competition with this bot!
 
-Usage:
+## Usage:
 
-	./a [-b=<boardfile>] [-t=<tilefile>] [-d=<dictionaryfile>] [-c=<configfolder>] [-r=<depth>]
+	./wwf [-b=<board_file>] [-t=<tile_file>] [-d=<dictionaryfile>] [-c=<configfolder>] [-r=<depth>]
 
 	-c: The folder with config files (board, tile, dictionary). Run with -c=wwf15 to play on the 15x15 board. (default 11x11)
 	-r: Forces a rebuild of the trie with given depth (max 5 for now)
 
-Commands:
+To get started,
+```shell script
+cmake
+make
+./wwf
+
+```
+
+
+## Commands:
 
 	game
 		Take turns playing with the bot.
+		<word>: plays <word> (see pm below for options)
 		.: pass
 		! <letters>: swap letters on the rack
 	pm [-f] <word> [<row>] [<column>] [d] [<blankposition>]
@@ -33,7 +43,7 @@ Commands:
 		-s: moves with minimum score
 		-h: calculate and list by heuristic score
 	pr <flags>
-		if <flags> contains:
+		Prints one or more things corresponding to the characters in <flags>:
 		b: print board
 		r: print rack
 		l: print letter bonus squares
@@ -48,3 +58,30 @@ Commands:
 		Take the file as input (like a pipe without EOF)
 	clear
 		Clears the board and resets the first move flag
+
+### Printing format:
+`.` is empty space  
+`?` is double word score  
+`!` is triple word score  
+`'` is double letter score  
+`*` is triple letter score  
+`_` is a blank tile
+```
+ 0 1 2 3 4 5 6 7 8 9 0 1
+ 1 * . ! . . . . . ! . *
+ 2 . ? . . . ? . . . ? .
+ 3 ! . * . ' . ' . * . !
+ 4 . . . * . . . * . . .
+ 5 . . ' . . . . . ' . .
+ 6 . ? . . . N O . . ? .
+ 7 . . ' . . . X . ' . .
+ 8 . . . * . . . * . . .
+ 9 ! . * . ' . ' . * . !
+ 0 . ? . . . ? . . . ? .
+ 1 * . ! . . . . . ! . *
+```
+_Player 1 played NO across, and Player 2 played OX down_
+
+## Notes
+Sorry the code is so poorly commented and organized! It was hacked together during a weekend a long time ago and I'm still strugging to understand what the heck it is I did.  
+Pull requests (especially refactorings) are welcome!
